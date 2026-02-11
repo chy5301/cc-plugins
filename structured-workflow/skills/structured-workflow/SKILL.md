@@ -1,0 +1,179 @@
+---
+name: structured-workflow
+description: "大型工程任务的结构化管理方法论。提供分阶段里程碑规划、
+  粒度约束任务分解、执行协议和会话交接管理。当项目中存在
+  .claude/workflow.json 或 docs/TASK_STATUS.md 时自动激活。
+  配合 /task-init, /task-plan, /task-exec, /task-pause,
+  /task-review, /task-archive 使用。"
+---
+
+# 结构化工作流系统
+
+## 系统概述
+
+结构化工作流是一套针对**大型工程任务**的全生命周期管理方法论。它将复杂的跨多会话任务分解为可控的执行单元，通过标准化的状态文件实现会话间信息传递，确保每个独立上下文都能自主执行分配的任务。
+
+**适用场景**：重构、迁移、大型功能开发、系统集成、性能优化、大规模缺陷修复、基础设施改造等需要跨多个会话完成的工程任务。
+
+**不适用场景**：单次会话可完成的小型任务、纯探索性研究、一次性脚本编写。
+
+---
+
+## 七项核心原则
+
+### 1. 任务粒度约束
+每个任务必须满足 `workflow.json` 中配置的约束上限（默认 ≤8 文件、≤3 小时）。超出约束的任务必须拆分。这确保每个任务在单次会话的上下文窗口内可完成。
+
+### 2. 自包含描述
+每个任务的描述必须包含足够的上下文信息，使得一个全新的会话（无任何先验知识）能够理解并执行该任务。禁止使用"如前所述""参见上文"等依赖外部上下文的引用。
+
+### 3. 六步执行协议
+每个任务严格按照 6 步执行：复述确认 → 最小变更路径 → 实施 → 验证 → 状态更新（不可跳过）→ 完成汇报。步骤 5 必须在向用户汇报之前完成。
+
+### 4. 交接记录
+每个任务完成后必须追加标准化的交接记录块到状态文件。交接记录包含完成内容、修改文件、验证结果、下一任务关注点和遗留问题。
+
+### 5. 异常处理
+4 种标准异常处理程序：任务过大→拆分、计划有误→停止等待确认、前置未完成→告知依赖、范围蔓延→完成范围内工作并记录范围外需求。
+
+### 6. 阶段退出标准
+每个阶段（Phase）有明确的退出标准。阶段内所有任务完成后，必须通过 `/task-review` 验证退出标准才能进入下一阶段。
+
+### 7. 中央状态跟踪
+所有进度、决策、问题、变更都记录在中央状态文件（TASK_STATUS.md）中。状态文件是唯一的事实来源，用于跨会话信息传递。
+
+---
+
+## 工作流生命周期
+
+```
+Init → Plan → Execute (循环) → Review (阶段性) → Archive
+```
+
+### Phase 0: 初始化 (`/task-init`)
+- 创建项目配置（workflow.json）
+- 自动分诊任务类型
+- 执行针对性分析
+- 输出 TASK_ANALYSIS.md
+
+### Phase 1: 规划 (`/task-plan`)
+- 制定总体策略和分阶段里程碑
+- 分解任务（遵循粒度约束）
+- 输出 TASK_PLAN.md + TASK_STATUS.md
+
+### Phase 2: 执行 (`/task-exec` 循环)
+- 逐任务执行，每次一个
+- 遇到问题时 `/task-pause` 分析
+- 需要调整计划时 `/task-plan [变更描述]`
+
+### Phase 3: 回顾 (`/task-review`)
+- 每个阶段完成后执行
+- 验证退出标准
+- 评估下游影响
+
+### Phase 4: 归档 (`/task-archive`)
+- 生成完成摘要
+- 归档状态文件
+- 清理环境
+
+---
+
+## 命令速查表
+
+| 命令 | 用途 | 使用时机 |
+|------|------|----------|
+| `/task-init [type]` | 初始化 + 分析 | 大型任务开始时 |
+| `/task-plan` | 初始规划 | 分析完成、用户确认后 |
+| `/task-plan [变更描述]` | 增量变更计划 | 执行过程中需调整计划时 |
+| `/task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
+| `/task-pause [问题]` | 问题分析暂停 | 执行中遇到阻塞时 |
+| `/task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
+| `/task-archive` | 归档清理 | 所有阶段完成后 |
+
+---
+
+## workflow.json 配置说明
+
+`workflow.json` 位于项目的 `.claude/` 目录下，由 `/task-init` 自动生成。
+
+```json
+{
+  "version": "1.0",
+  "primaryType": "<任务类型>",
+  "secondaryTags": [],
+  "taskPrefix": "<编号前缀>",
+  "constraints": {
+    "maxFilesPerTask": 8,
+    "maxHoursPerTask": 3
+  },
+  "stateFiles": {
+    "analysis": "docs/TASK_ANALYSIS.md",
+    "plan": "docs/TASK_PLAN.md",
+    "status": "docs/TASK_STATUS.md",
+    "dependencyMap": "docs/DEPENDENCY_MAP.md"
+  },
+  "phases": [],
+  "projectContext": {
+    "description": "",
+    "buildCommand": "",
+    "testCommand": ""
+  }
+}
+```
+
+### 任务类型与默认前缀
+
+| 类型 | 前缀 | 说明 |
+|------|------|------|
+| `feature` | F | 新功能开发 |
+| `refactor` | R | 代码重构 |
+| `migration` | M | 技术迁移 |
+| `integration` | I | 系统集成 |
+| `optimization` | O | 性能优化 |
+| `bugfix` | B | 大规模缺陷修复 |
+| `infrastructure` | T | 基础设施改造 |
+| `generic` | G | 通用任务 |
+
+### 约束配置
+
+- `maxFilesPerTask`：单任务涉及的最大文件数（默认 8）
+- `maxHoursPerTask`：单任务预估最大工时（默认 3 小时）
+
+---
+
+## 状态文件体系
+
+| 文件 | 用途 | 生成时机 |
+|------|------|----------|
+| `TASK_ANALYSIS.md` | 分析报告 | `/task-init` |
+| `TASK_PLAN.md` | 任务清单 | `/task-plan` |
+| `TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-plan`，每次 `/task-exec` 更新 |
+| `DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-plan` |
+
+---
+
+## 资源索引
+
+本工作流系统包含以下参考文档，供各命令在执行时加载：
+
+- `references/task-format.md` — 任务定义格式规范
+- `references/exception-handling.md` — 异常处理与计划变更程序
+- `references/handover-template.md` — 交接记录模板
+- `references/analyzer-prompts.md` — 分类型分析 prompt
+- `references/planner-prompts.md` — 分类型规划 prompt
+
+---
+
+## 关键行为约束
+
+### 执行阶段禁止事项
+- 一次执行多个任务
+- 范围外变更（无关重构、格式化、顺手修 bug）
+- 使用"如前所述"等模糊引用
+- 跳过验证步骤
+- 在状态更新前向用户汇报完成
+
+### 规划阶段约束
+- 所有任务必须遵循 `references/task-format.md` 格式
+- 所有任务必须满足粒度约束
+- 依赖关系必须显式声明
