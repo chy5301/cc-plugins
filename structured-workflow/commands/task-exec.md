@@ -14,12 +14,19 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 - `$ARGUMENTS`：要执行的任务编号（如 `T-05`、`R-03`）
 
-## 启动
+## 步骤 0：加载约束（每次执行必须）
 
-1. 读取 `.claude/workflow.json`（配置和约束）
+1. 读取 `.claude/workflow.json`，获取 `constraints`、`phases`、`projectContext`
 2. 读取 TASK_PLAN.md（找到指定任务的完整定义）
-3. 读取 TASK_STATUS.md（当前进度 + 前一任务的交接记录）
-4. 如果任务有依赖，确认所有依赖任务已完成。未完成则按**异常 3**处理（停止 + 告知依赖）。
+3. 读取 TASK_STATUS.md（当前进度 + 查看最近的交接记录，了解上一任务的关注点和遗留问题）
+4. 确认以下约束已加载到当前上下文：
+   - 粒度约束：`maxFilesPerTask`={N}, `maxHoursPerTask`={N}
+   - 构建命令：`projectContext.buildCommand`
+   - 测试命令：`projectContext.testCommand`
+   - 当前阶段及其退出标准
+5. 如果任务有依赖，确认所有依赖任务已完成。未完成则按**异常 3**处理（停止 + 告知依赖）。
+
+然后进入步骤 1（复述确认）。
 
 ## 六步执行协议
 

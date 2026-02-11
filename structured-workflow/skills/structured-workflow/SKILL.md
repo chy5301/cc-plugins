@@ -44,34 +44,39 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
 
 ---
 
+## 与 Claude Code Plan Mode 的关系
+
+`/task-init` **不要在 plan mode 下使用**。`/task-init` 需要运行初始化脚本、创建 workflow.json、写入分析报告和任务计划等多个文件，plan mode 的只读限制会阻断这些操作，导致工作流无法正常初始化。`/task-init` 自身已内置类型确认、配置确认、策略确认等用户审批点，不需要 plan mode 额外辅助。
+
+其他命令（`/task-exec`、`/task-plan`、`/task-review` 等）可根据需要配合 plan mode 使用。
+
+---
+
 ## 工作流生命周期
 
 ```
-Init → Plan → Execute (循环) → Review (阶段性) → Archive
+Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 ```
 
-### Phase 0: 初始化 (`/task-init`)
+### Phase 0: 初始化 + 分析 + 规划 (`/task-init`)
 - 创建项目配置（workflow.json）
 - 自动分诊任务类型
-- 执行针对性分析
-- 输出 TASK_ANALYSIS.md
-
-### Phase 1: 规划 (`/task-plan`)
+- 执行针对性分析，输出 TASK_ANALYSIS.md
 - 制定总体策略和分阶段里程碑
 - 分解任务（遵循粒度约束）
 - 输出 TASK_PLAN.md + TASK_STATUS.md
 
-### Phase 2: 执行 (`/task-exec` 循环)
+### Phase 1: 执行 (`/task-exec` 循环)
 - 逐任务执行，每次一个
 - 遇到问题时 `/task-pause` 分析
 - 需要调整计划时 `/task-plan [变更描述]`
 
-### Phase 3: 回顾 (`/task-review`)
+### Phase 2: 回顾 (`/task-review`)
 - 每个阶段完成后执行
 - 验证退出标准
 - 评估下游影响
 
-### Phase 4: 归档 (`/task-archive`)
+### Phase 3: 归档 (`/task-archive`)
 - 生成完成摘要
 - 归档状态文件
 - 清理环境
@@ -82,9 +87,8 @@ Init → Plan → Execute (循环) → Review (阶段性) → Archive
 
 | 命令 | 用途 | 使用时机 |
 |------|------|----------|
-| `/task-init [type]` | 初始化 + 分析 | 大型任务开始时 |
-| `/task-plan` | 初始规划 | 分析完成、用户确认后 |
-| `/task-plan [变更描述]` | 增量变更计划 | 执行过程中需调整计划时 |
+| `/task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时（一步到位） |
+| `/task-plan [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
 | `/task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
 | `/task-pause [问题]` | 问题分析暂停 | 执行中遇到阻塞时 |
 | `/task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
@@ -146,9 +150,9 @@ Init → Plan → Execute (循环) → Review (阶段性) → Archive
 | 文件 | 用途 | 生成时机 |
 |------|------|----------|
 | `TASK_ANALYSIS.md` | 分析报告 | `/task-init` |
-| `TASK_PLAN.md` | 任务清单 | `/task-plan` |
-| `TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-plan`，每次 `/task-exec` 更新 |
-| `DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-plan` |
+| `TASK_PLAN.md` | 任务清单 | `/task-init`，`/task-plan` 增量更新 |
+| `TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-init`，每次 `/task-exec` 更新 |
+| `DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-init` |
 
 ---
 

@@ -1,90 +1,31 @@
 ---
-description: 任务规划 / 增量计划变更
-argument-hint: "[变更描述]"
+description: 增量计划变更
+argument-hint: "<变更描述>"
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
-# /task-plan — 任务规划 / 计划变更
+# /task-plan — 增量计划变更
 
-你是一个大型工程任务的规划师。你的职责取决于当前状态：如果 TASK_PLAN.md 不存在，你执行**初始规划**；如果已存在且用户提供了变更描述，你执行**增量变更**。
+你是一个大型工程任务的规划师。你的职责是根据用户的变更描述，对现有的任务计划进行增量调整。
+
+> **注意**：初始规划已合并到 `/task-init` 命令中。本命令仅用于对已有计划进行增量变更。
 
 ## 输入
 
-- `$ARGUMENTS`：可选的变更描述（自然语言）
+- `$ARGUMENTS`：变更描述（自然语言）
 
-## 模式判断
+## 前置检查
 
 1. 读取 `.claude/workflow.json`，获取配置
 2. 检查 TASK_PLAN.md 是否存在（路径来自 `workflow.json` 的 `stateFiles.plan`）
-3. 判断模式：
-   - TASK_PLAN.md **不存在** 且 `$ARGUMENTS` 为空 → **模式 1：初始规划**
-   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 非空 → **模式 2：增量变更**
-   - TASK_PLAN.md **不存在** 且 `$ARGUMENTS` 非空 → **模式 1**（忽略参数，执行初始规划）
-   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 为空 → 询问用户意图（重新规划还是查看当前计划）
+3. 判断：
+   - TASK_PLAN.md **不存在** → 提示用户：`TASK_PLAN.md 不存在，请先运行 /task-init 完成初始化和规划。`，然后终止
+   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 为空 → 提示用户：`请提供变更描述。用法：/task-plan <变更描述>`，然后终止
+   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 非空 → 进入增量变更流程
 
 ---
 
-## 模式 1：初始规划
-
-### 步骤 1：加载输入
-
-- 读取 `.claude/workflow.json`（约束配置、类型、阶段）
-- 读取 `docs/TASK_ANALYSIS.md`（分析结果）
-- 如果分析报告不存在，提示用户先运行 `/task-init`
-
-### 步骤 2：加载规划 Prompt
-
-读取 `references/planner-prompts.md` 中**对应 primaryType 的章节**。
-
-### 步骤 3：制定总体策略
-
-根据分析结果和类型对应的策略选项：
-1. 列出可选策略（来自 planner-prompts.md）
-2. 推荐最佳策略并说明理由
-3. 等待用户确认或选择
-
-### 步骤 4：设计阶段里程碑
-
-基于 `workflow.json` 中预设的 phases，结合分析结果：
-1. 确认/调整阶段划分
-2. 为每个阶段定义具体的退出标准
-3. 更新 `workflow.json` 的 phases 字段
-
-### 步骤 5：分解任务
-
-将工作分解为具体任务，**每个任务必须**：
-- 遵循 `references/task-format.md` 格式
-- 涉及文件数 ≤ `workflow.json` 中 `maxFilesPerTask`
-- 预估工时 ≤ `workflow.json` 中 `maxHoursPerTask` 小时
-- 包含自包含的背景信息
-- 声明依赖关系
-
-**粒度自检**：每个任务创建后，检查是否超出约束。超出的任务必须拆分。
-
-### 步骤 6：输出文件
-
-生成以下文件：
-
-**TASK_PLAN.md**（路径来自 workflow.json）：
-- 总体策略
-- 阶段里程碑
-- 完整任务列表（按阶段组织，遵循 task-format.md 格式）
-
-**TASK_STATUS.md**（更新已有模板）：
-- 填充进度总览表
-- 填充任务状态表
-- 保留已知问题、决策日志、交接记录章节
-
-**DEPENDENCY_MAP.md**（可选，路径来自 workflow.json）：
-- 如果任务间有复杂依赖，生成依赖关系图
-
-### 步骤 7：告知用户
-
-列出任务总数、阶段划分和关键依赖，请用户审阅后开始执行。
-
----
-
-## 模式 2：增量变更
+## 增量变更流程
 
 ### 步骤 1：加载当前状态
 

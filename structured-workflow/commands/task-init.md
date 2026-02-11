@@ -1,14 +1,16 @@
 ---
-description: 初始化工作流配置 + 项目分析
+description: 初始化工作流 + 项目分析 + 任务规划
 argument-hint: "[type]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
-# /task-init — 工作流初始化 + 分析
+# /task-init — 工作流初始化 + 分析 + 规划
 
-> **⚠️ 首要提醒**：本命令完成时，必须确认 `workflow.json` 和 `TASK_ANALYSIS.md` 均已正确生成。
+> **⚠️ 首要提醒**：本命令完成时，必须确认 `workflow.json`、`TASK_ANALYSIS.md`、`TASK_PLAN.md` 和 `TASK_STATUS.md` 均已正确生成。
 
-你是一个大型工程任务的初始化分析师。你的职责是为项目创建工作流配置，确定任务类型，并执行针对性分析。
+> **⚠️ 不要在 plan mode 下使用本命令**。本命令需要运行脚本、创建配置文件、写入分析报告和任务计划，plan mode 的只读限制会阻断这些操作。本命令自身已内置多个用户审批点，不需要 plan mode 额外辅助。
+
+你是一个大型工程任务的初始化分析师和规划师。你的职责是为项目创建工作流配置、确定任务类型、执行针对性分析，并制定完整的任务计划。
 
 ## 输入
 
@@ -76,23 +78,75 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 报告格式遵循 `references/analyzer-prompts.md` 中对应类型的输出格式。
 
-### 步骤 6：列出待确认事项
-
-在分析报告末尾和用户对话中，列出：
+在分析报告末尾列出：
 - 分析过程中做出的假设
 - 需要用户决策的问题
 - 模糊的需求点
 
-明确告知用户：**请审阅分析报告，确认后使用 `/task-plan` 进入规划阶段**。
+### 步骤 6：制定总体策略 ← 用户确认点
+
+读取 `references/planner-prompts.md` 中**对应 primaryType 的章节**。
+
+根据分析结果和类型对应的策略选项：
+1. 列出可选策略（来自 planner-prompts.md）
+2. 推荐最佳策略并说明理由
+3. 等待用户确认或选择
+
+### 步骤 7：设计阶段里程碑
+
+基于 `workflow.json` 中预设的 phases，结合分析结果：
+1. 确认/调整阶段划分
+2. 为每个阶段定义具体的退出标准
+3. 更新 `workflow.json` 的 phases 字段
+
+### 步骤 8：分解任务
+
+将工作分解为具体任务，**每个任务必须**：
+- 遵循 `references/task-format.md` 格式
+- 涉及文件数 ≤ `workflow.json` 中 `maxFilesPerTask`
+- 预估工时 ≤ `workflow.json` 中 `maxHoursPerTask` 小时
+- 包含自包含的背景信息
+- 声明依赖关系
+
+**粒度自检**：每个任务创建后，检查是否超出约束。超出的任务必须拆分。
+
+### 步骤 9：输出任务计划
+
+生成以下文件：
+
+**TASK_PLAN.md**（路径来自 workflow.json）：
+- 总体策略
+- 阶段里程碑
+- 完整任务列表（按阶段组织，遵循 task-format.md 格式）
+
+**TASK_STATUS.md**（更新已有模板）：
+- 填充进度总览表
+- 填充任务状态表
+- 保留已知问题、决策日志、交接记录章节
+
+**DEPENDENCY_MAP.md**（可选，路径来自 workflow.json）：
+- 如果任务间有复杂依赖，生成依赖关系图
+
+### 步骤 10：引导执行
+
+向用户汇报：
+- 任务总数和阶段划分
+- 关键依赖关系
+- 建议的起始任务
+
+明确告知：**请审阅任务计划，确认后使用 `/task-exec [任务编号]` 开始执行**。
 
 ## 生成的文件
 
 - `.claude/workflow.json` — 工作流配置
-- `docs/TASK_STATUS.md` — 状态文件模板
 - `docs/TASK_ANALYSIS.md` — 分析报告
+- `docs/TASK_PLAN.md` — 任务清单
+- `docs/TASK_STATUS.md` — 进度跟踪 + 交接记录
+- `docs/DEPENDENCY_MAP.md` — 依赖关系图（可选）
 
 ## 注意事项
 
 - 如果 `workflow.json` 已存在，询问用户是否要覆盖或在现有基础上修改
-- 分析阶段不修改任何项目代码，仅读取和生成文档
-- 分析报告应尽量详尽，因为它是后续规划的唯一输入
+- 分析和规划阶段不修改任何项目代码，仅读取和生成文档
+- 分析报告应尽量详尽，因为它是后续规划的基础
+- 步骤 2 和步骤 6 是用户确认点，必须等待用户确认后才继续
