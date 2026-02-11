@@ -1,4 +1,4 @@
-# claude-code-plugins
+# cc-plugins
 
 Claude Code 插件集合。
 
@@ -15,8 +15,8 @@ Claude Code 插件集合。
 在 Claude Code 中依次执行：
 
 ```
-/plugin marketplace add chy5301/claude-code-plugins
-/plugin install structured-workflow@claude-code-plugins
+/plugin marketplace add chy5301/cc-plugins
+/plugin install structured-workflow@cc-plugins
 ```
 
 ### 方式 2：本地加载
@@ -24,6 +24,6 @@ Claude Code 插件集合。
 克隆仓库后，启动 Claude Code 时指定插件目录：
 
 ```bash
-git clone https://github.com/chy5301/claude-code-plugins.git
-claude --plugin-dir /path/to/claude-code-plugins/structured-workflow
+git clone https://github.com/chy5301/cc-plugins.git
+claude --plugin-dir /path/to/cc-plugins/structured-workflow
 ```
