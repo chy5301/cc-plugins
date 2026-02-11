@@ -1,7 +1,7 @@
 {
   "name": "structured-workflow",
   "description": "大型工程任务的结构化管理工作流。提供分析→规划→执行→回顾→归档全生命周期管理，适用于重构、迁移、大型功能开发、系统集成、性能优化等跨多会话的工程任务。",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": {
     "name": "chy"
   },
