@@ -90,7 +90,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 ## 通用约束
 
-- 所有任务必须遵循 `references/task-format.md` 格式
+- 所有任务必须遵循 `${CLAUDE_PLUGIN_ROOT}/references/task-format.md` 格式
 - 所有任务必须满足 `workflow.json` 中的粒度约束
 - 依赖关系不允许循环
 - 规划阶段不修改任何项目代码

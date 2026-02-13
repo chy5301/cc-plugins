@@ -160,11 +160,11 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 
 本工作流系统包含以下参考文档，供各命令在执行时加载：
 
-- `references/task-format.md` — 任务定义格式规范
-- `references/exception-handling.md` — 异常处理与计划变更程序
-- `references/handover-template.md` — 交接记录模板
-- `references/analyzer-prompts.md` — 分类型分析 prompt
-- `references/planner-prompts.md` — 分类型规划 prompt
+- `${CLAUDE_PLUGIN_ROOT}/references/task-format.md` — 任务定义格式规范
+- `${CLAUDE_PLUGIN_ROOT}/references/exception-handling.md` — 异常处理与计划变更程序
+- `${CLAUDE_PLUGIN_ROOT}/references/handover-template.md` — 交接记录模板
+- `${CLAUDE_PLUGIN_ROOT}/references/analyzer-prompts.md` — 分类型分析 prompt
+- `${CLAUDE_PLUGIN_ROOT}/references/planner-prompts.md` — 分类型规划 prompt
 
 ---
 
@@ -178,6 +178,6 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 - 在状态更新前向用户汇报完成
 
 ### 规划阶段约束
-- 所有任务必须遵循 `references/task-format.md` 格式
+- 所有任务必须遵循 `${CLAUDE_PLUGIN_ROOT}/references/task-format.md` 格式
 - 所有任务必须满足粒度约束
 - 依赖关系必须显式声明

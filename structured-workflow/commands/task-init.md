@@ -20,8 +20,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 1：运行初始化脚本
 
-1. 定位脚本：使用 Glob 搜索 `**/structured-workflow/scripts/init_project.py` 找到脚本路径
-2. 运行脚本：`uv run <脚本路径> --path <PROJECT_ROOT> [--type <type>] --force`
+1. 运行初始化脚本：`uv run "${CLAUDE_PLUGIN_ROOT}/scripts/init_project.py" --path <PROJECT_ROOT> [--type <type>] --force`
 3. 如果用户在 `$ARGUMENTS` 中提供了类型，加上 `--type` 参数
 
 ### 步骤 2：任务类型识别
@@ -39,7 +38,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 3. 如果置信度 < 0.7：提出 1 个澄清问题或给出 2 个选项供用户选择
 4. 等待用户确认或修正类型
 
-**分诊规则参考**（来自 `references/analyzer-prompts.md`）：
+**分诊规则参考**（来自 `${CLAUDE_PLUGIN_ROOT}/references/analyzer-prompts.md`）：
 - `refactor` vs `optimization`：refactor 侧重结构，optimization 侧重度量
 - `migration` vs `refactor`：migration 涉及技术栈切换
 - `feature` vs `integration`：feature 是自研，integration 是接入外部系统
@@ -63,7 +62,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 4：执行分析
 
-读取 `references/analyzer-prompts.md` 中**对应 primaryType 的章节**，按照该章节定义的分析任务逐项执行。
+读取 `${CLAUDE_PLUGIN_ROOT}/references/analyzer-prompts.md` 中**对应 primaryType 的章节**，按照该章节定义的分析任务逐项执行。
 
 如果有 secondaryTags，读取对应的补充检查项并附加到分析中。
 
@@ -76,7 +75,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 将分析结果写入 `docs/TASK_ANALYSIS.md`（路径来自 `workflow.json` 的 `stateFiles.analysis`）。
 
-报告格式遵循 `references/analyzer-prompts.md` 中对应类型的输出格式。
+报告格式遵循 `${CLAUDE_PLUGIN_ROOT}/references/analyzer-prompts.md` 中对应类型的输出格式。
 
 在分析报告末尾列出：
 - 分析过程中做出的假设
@@ -85,7 +84,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 6：制定总体策略 ← 用户确认点
 
-读取 `references/planner-prompts.md` 中**对应 primaryType 的章节**。
+读取 `${CLAUDE_PLUGIN_ROOT}/references/planner-prompts.md` 中**对应 primaryType 的章节**。
 
 根据分析结果和类型对应的策略选项：
 1. 列出可选策略（来自 planner-prompts.md）
@@ -102,7 +101,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ### 步骤 8：分解任务
 
 将工作分解为具体任务，**每个任务必须**：
-- 遵循 `references/task-format.md` 格式
+- 遵循 `${CLAUDE_PLUGIN_ROOT}/references/task-format.md` 格式
 - 涉及文件数 ≤ `workflow.json` 中 `maxFilesPerTask`
 - 预估工时 ≤ `workflow.json` 中 `maxHoursPerTask` 小时
 - 包含自包含的背景信息

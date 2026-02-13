@@ -68,7 +68,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 **异常处理**（执行过程中遇到问题时）：
 
-参照 `references/exception-handling.md`：
+参照 `${CLAUDE_PLUGIN_ROOT}/references/exception-handling.md`：
 - 发现任务过大 → **异常 1**：拆分为子任务，仅执行第一个
 - 发现计划有误 → **异常 2**：停止修改，记录问题，等待确认
 - 发现前置未完成 → **异常 3**：停止，告知依赖
@@ -105,7 +105,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 在 TASK_STATUS.md 的"交接记录"章节末尾追加交接记录块。
 
-交接记录格式参照 `references/handover-template.md`，必须包含：
+交接记录格式参照 `${CLAUDE_PLUGIN_ROOT}/references/handover-template.md`，必须包含：
 - 完成内容
 - 修改的文件
 - 验证结果

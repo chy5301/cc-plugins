@@ -20,7 +20,7 @@ allowed-tools: Read, Glob, Grep, Write, Edit
 2. 读取 TASK_PLAN.md，了解当前任务和整体计划
 3. 分析用户描述的问题：
    - 问题的本质是什么？
-   - 属于哪种异常类型？（参照 `references/exception-handling.md`）
+   - 属于哪种异常类型？（参照 `${CLAUDE_PLUGIN_ROOT}/references/exception-handling.md`）
    - 根本原因是什么？
 
 ### 步骤 2：影响评估

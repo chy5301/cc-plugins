@@ -1,7 +1,7 @@
 ---
 description: 工作流归档 + 环境清理
 argument-hint: "[--summary | --label <标签>]"
-allowed-tools: Bash, Read, Write, Glob, Grep
+allowed-tools: Bash, Read, Write, Grep
 ---
 
 # /task-archive — 工作流归档
@@ -76,8 +76,7 @@ allowed-tools: Bash, Read, Write, Glob, Grep
 
 运行归档脚本：
 
-1. 定位脚本：使用 Glob 搜索 `**/structured-workflow/scripts/archive_workflow.py` 找到脚本路径
-2. 运行：`uv run <脚本路径> --path <PROJECT_ROOT> [--label <标签>]`
+1. 运行：`uv run "${CLAUDE_PLUGIN_ROOT}/scripts/archive_workflow.py" --path <PROJECT_ROOT> [--label <标签>]`
 
 脚本会：
 - 将 TASK_ANALYSIS.md、TASK_PLAN.md、TASK_STATUS.md、DEPENDENCY_MAP.md 移入归档目录
