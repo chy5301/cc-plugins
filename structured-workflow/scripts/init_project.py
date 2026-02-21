@@ -21,6 +21,7 @@
 
 import argparse
 import json
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -106,6 +107,23 @@ DEFAULT_PHASES = {
 }
 
 
+def get_current_commit(project_root: Path) -> str:
+    """获取当前 HEAD 的 commit hash，失败时返回空字符串"""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return ""
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="结构化工作流 - 项目初始化",
@@ -167,6 +185,7 @@ def create_workflow_json(args: argparse.Namespace) -> dict:
 
     return {
         "version": "1.0",
+        "initCommit": "",
         "primaryType": primary_type,
         "secondaryTags": tags,
         "taskPrefix": prefix,
@@ -260,6 +279,7 @@ def main() -> None:
 
     # 生成配置
     config = create_workflow_json(args)
+    config["initCommit"] = get_current_commit(project_root)
 
     # 写入 workflow.json
     with open(workflow_path, "w", encoding="utf-8") as f:
@@ -283,6 +303,8 @@ def main() -> None:
     print(f"  前缀: {config['taskPrefix']}")
     print(f"  约束: ≤{config['constraints']['maxFilesPerTask']} 文件/任务, ≤{config['constraints']['maxHoursPerTask']} 小时/任务")
     print(f"  阶段: {len(config['phases'])} 个")
+    if config["initCommit"]:
+        print(f"  initCommit: {config['initCommit'][:8]}")
     if not args.type:
         print()
         print("提示: 未指定类型，请使用 /task-init 让 Claude 自动分诊")

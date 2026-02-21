@@ -4,7 +4,7 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
   粒度约束任务分解、执行协议和会话交接管理。当项目中存在
   .claude/workflow.json 或 docs/TASK_STATUS.md 时自动激活。
   配合 /task-init, /task-plan, /task-exec, /task-pause,
-  /task-review, /task-archive 使用。"
+  /task-review, /task-abort, /task-archive 使用。"
 ---
 
 # 结构化工作流系统
@@ -56,6 +56,8 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
 
 ```
 Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
+                        ↓
+                 任意阶段 →（放弃）→ Abort
 ```
 
 ### Phase 0: 初始化 + 分析 + 规划 (`/task-init`)
@@ -76,6 +78,12 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 - 验证退出标准
 - 评估下游影响
 
+### 异常终止 (`/task-abort`)
+- 在任意阶段放弃整个工作流
+- 默认仅清理状态文件，不触碰代码
+- 可选 `--reset` 回滚到工作流初始 commit（需二次确认）
+- 生成终止报告，记录进度快照和 commit 列表
+
 ### Phase 3: 归档 (`/task-archive`)
 - 生成完成摘要
 - 归档状态文件
@@ -92,6 +100,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 | `/task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
 | `/task-pause [问题]` | 问题分析暂停 | 执行中遇到阻塞时 |
 | `/task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
+| `/task-abort [--reset] [原因]` | 终止 + 清理 | 需要放弃整个工作流时 |
 | `/task-archive` | 归档清理 | 所有阶段完成后 |
 
 ---
