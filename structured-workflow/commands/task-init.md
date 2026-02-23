@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # /task-init — 工作流初始化 + 分析 + 规划
 
-> **⚠️ 首要提醒**：本命令完成时，必须确认 `workflow.json`、`TASK_ANALYSIS.md`、`TASK_PLAN.md` 和 `TASK_STATUS.md` 均已正确生成。
+> **⚠️ 首要提醒**：本命令完成时，必须确认 `docs/workflow/workflow.json`、`TASK_ANALYSIS.md`、`TASK_PLAN.md` 和 `TASK_STATUS.md` 均已正确生成在 `docs/workflow/` 目录下。
 
 > **⚠️ 不要在 plan mode 下使用本命令**。本命令需要运行脚本、创建配置文件、写入分析报告和任务计划，plan mode 的只读限制会阻断这些操作。本命令自身已内置多个用户审批点，不需要 plan mode 额外辅助。
 
@@ -51,9 +51,15 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 3：确认配置
 
-类型确定后，更新 `workflow.json` 中的 `primaryType` 和 `secondaryTags`（如果与初始化时不同）。
+类型确定后，更新 `docs/workflow/workflow.json` 中的 `primaryType` 和 `secondaryTags`（如果与初始化时不同）。
+
+**生成 taskName**：根据用户描述的任务内容，自动生成一个简短的英文 slug 作为 `taskName`（如 `extract-auth-module`、`add-oauth-support`），写入 `workflow.json` 的 `taskName` 字段。规则：
+- 小写英文，单词间用短横线连接
+- 3~5 个单词，能概括任务核心内容
+- 不含特殊字符
 
 向用户确认以下配置项（列出当前值，询问是否需要调整）：
+- taskName（任务名称 slug）
 - 粒度约束（maxFilesPerTask、maxHoursPerTask）
 - 任务编号前缀
 - 阶段划分
@@ -73,7 +79,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 5：输出分析报告
 
-将分析结果写入 `docs/TASK_ANALYSIS.md`（路径来自 `workflow.json` 的 `stateFiles.analysis`）。
+将分析结果写入 `docs/workflow/TASK_ANALYSIS.md`（路径来自 `workflow.json` 的 `stateFiles.analysis`）。
 
 报告格式遵循 `${CLAUDE_PLUGIN_ROOT}/references/analyzer-prompts.md` 中对应类型的输出格式。
 
@@ -137,11 +143,11 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 生成的文件
 
-- `.claude/workflow.json` — 工作流配置
-- `docs/TASK_ANALYSIS.md` — 分析报告
-- `docs/TASK_PLAN.md` — 任务清单
-- `docs/TASK_STATUS.md` — 进度跟踪 + 交接记录
-- `docs/DEPENDENCY_MAP.md` — 依赖关系图（可选）
+- `docs/workflow/workflow.json` — 工作流配置
+- `docs/workflow/TASK_ANALYSIS.md` — 分析报告
+- `docs/workflow/TASK_PLAN.md` — 任务清单
+- `docs/workflow/TASK_STATUS.md` — 进度跟踪 + 交接记录
+- `docs/workflow/DEPENDENCY_MAP.md` — 依赖关系图（可选）
 
 ## 注意事项
 

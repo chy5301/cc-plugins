@@ -8,6 +8,7 @@
 
 选项:
     --type <type>           显式指定任务类型（跳过自动分诊）
+    --task-name <slug>      任务名称 slug（如 extract-auth-module）
     --tags <tag1,tag2>      附加标签
     --max-files <N>         单任务最大文件数（默认 8）
     --max-hours <N>         单任务最大工时（默认 3）
@@ -139,6 +140,11 @@ def parse_args() -> argparse.Namespace:
         help="任务类型（不指定则由 Claude 自动分诊）",
     )
     parser.add_argument(
+        "--task-name",
+        default=None,
+        help="任务名称 slug（英文短横线分隔，如 extract-auth-module）",
+    )
+    parser.add_argument(
         "--tags", default="", help="附加标签，逗号分隔"
     )
     parser.add_argument(
@@ -184,8 +190,9 @@ def create_workflow_json(args: argparse.Namespace) -> dict:
         phases = DEFAULT_PHASES.get(primary_type, DEFAULT_PHASES["generic"])
 
     return {
-        "version": "1.0",
+        "version": "1.1",
         "initCommit": "",
+        "taskName": args.task_name or "",
         "primaryType": primary_type,
         "secondaryTags": tags,
         "taskPrefix": prefix,
@@ -194,10 +201,10 @@ def create_workflow_json(args: argparse.Namespace) -> dict:
             "maxHoursPerTask": args.max_hours,
         },
         "stateFiles": {
-            "analysis": "docs/TASK_ANALYSIS.md",
-            "plan": "docs/TASK_PLAN.md",
-            "status": "docs/TASK_STATUS.md",
-            "dependencyMap": "docs/DEPENDENCY_MAP.md",
+            "analysis": "docs/workflow/TASK_ANALYSIS.md",
+            "plan": "docs/workflow/TASK_PLAN.md",
+            "status": "docs/workflow/TASK_STATUS.md",
+            "dependencyMap": "docs/workflow/DEPENDENCY_MAP.md",
         },
         "phases": phases,
         "projectContext": {
@@ -260,22 +267,31 @@ def main() -> None:
         sys.exit(1)
 
     # 创建目录
-    claude_dir = project_root / ".claude"
-    docs_dir = project_root / "docs"
-    claude_dir.mkdir(exist_ok=True)
-    docs_dir.mkdir(exist_ok=True)
+    workflow_dir = project_root / "docs" / "workflow"
+    workflow_dir.mkdir(parents=True, exist_ok=True)
 
-    # 检查是否已存在 workflow.json
-    workflow_path = claude_dir / "workflow.json"
+    # 检查是否已存在 workflow.json（新路径优先，旧路径回退）
+    workflow_path = workflow_dir / "workflow.json"
+    old_workflow_path = project_root / ".claude" / "workflow.json"
+    existing_path = None
     if workflow_path.exists():
+        existing_path = workflow_path
+    elif old_workflow_path.exists():
+        existing_path = old_workflow_path
+
+    if existing_path:
         if args.force:
-            print(f"⚠ 覆盖已有 workflow.json: {workflow_path}")
+            print(f"⚠ 覆盖已有 workflow.json: {existing_path}")
         else:
-            print(f"警告: workflow.json 已存在于 {workflow_path}", file=sys.stderr)
+            print(f"警告: workflow.json 已存在于 {existing_path}", file=sys.stderr)
             response = input("是否覆盖? (y/N): ").strip().lower()
             if response != "y":
                 print("已取消")
                 sys.exit(0)
+        # 如果旧路径存在，清理旧文件
+        if old_workflow_path.exists() and old_workflow_path != workflow_path:
+            old_workflow_path.unlink()
+            print(f"✓ 已清理旧路径: {old_workflow_path}")
 
     # 生成配置
     config = create_workflow_json(args)
@@ -287,7 +303,7 @@ def main() -> None:
     print(f"✓ 已创建: {workflow_path}")
 
     # 生成并写入 TASK_STATUS.md（如果不存在）
-    status_path = docs_dir / "TASK_STATUS.md"
+    status_path = workflow_dir / "TASK_STATUS.md"
     if not status_path.exists():
         status_content = create_status_template(config)
         with open(status_path, "w", encoding="utf-8") as f:

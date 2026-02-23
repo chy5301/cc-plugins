@@ -18,7 +18,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 步骤 0：加载约束（每次执行必须）
 
-1. 读取 `.claude/workflow.json`，获取 `constraints`、`phases`、`projectContext`
+1. 读取 `docs/workflow/workflow.json`，获取 `constraints`、`phases`、`projectContext`
 2. 读取 TASK_PLAN.md（找到指定任务的完整定义）
 3. 读取 TASK_STATUS.md（当前进度 + 查看最近的交接记录，了解上一任务的关注点和遗留问题）
 4. 确认以下约束已加载到当前上下文：

@@ -16,7 +16,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 1：汇总检查
 
-1. 读取 `.claude/workflow.json`（阶段配置和退出标准）
+1. 读取 `docs/workflow/workflow.json`（阶段配置和退出标准）
 2. 读取 TASK_PLAN.md（该阶段的任务列表）
 3. 读取 TASK_STATUS.md（任务完成状态 + 所有交接记录）
 

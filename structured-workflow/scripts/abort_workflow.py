@@ -8,17 +8,27 @@
     uv run abort_workflow.py --path <project-root> --mode <archive|delete> [--label <标签>]
 
 选项:
-    --mode archive    归档状态文件到 docs/archive/（目录名含 aborted 标记）
+    --mode archive    归档状态文件到 docs/workflow/archive/（目录名含 aborted 标记）
     --mode delete     直接删除所有状态文件和 workflow.json
     --label <标签>    自定义归档标签（默认使用 workflow.json 中的 primaryType）
 """
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
+
+
+def slugify(text: str) -> str:
+    """将文本转为目录名安全的 slug（小写字母、数字、短横线）"""
+    text = text.lower().strip()
+    text = re.sub(r"[^a-z0-9\s-]", "", text)
+    text = re.sub(r"[\s_]+", "-", text)
+    text = re.sub(r"-+", "-", text)
+    return text.strip("-")
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,10 +55,10 @@ def get_state_files(project_root: Path, config: dict) -> dict[str, Path]:
     """获取所有状态文件路径"""
     state_files = config.get("stateFiles", {})
     default_files = {
-        "analysis": "docs/TASK_ANALYSIS.md",
-        "plan": "docs/TASK_PLAN.md",
-        "status": "docs/TASK_STATUS.md",
-        "dependencyMap": "docs/DEPENDENCY_MAP.md",
+        "analysis": "docs/workflow/TASK_ANALYSIS.md",
+        "plan": "docs/workflow/TASK_PLAN.md",
+        "status": "docs/workflow/TASK_STATUS.md",
+        "dependencyMap": "docs/workflow/DEPENDENCY_MAP.md",
     }
     return {
         key: project_root / state_files.get(key, default_path)
@@ -58,15 +68,23 @@ def get_state_files(project_root: Path, config: dict) -> dict[str, Path]:
 
 def archive_mode(project_root: Path, config: dict, label: str) -> None:
     """归档模式：移动状态文件到归档目录"""
+    primary_type = config.get("primaryType", "generic")
+    task_name = config.get("taskName", "")
+    if label != primary_type:
+        name_part = slugify(label)
+    elif task_name:
+        name_part = slugify(task_name)
+    else:
+        name_part = primary_type
     date_str = datetime.now().strftime("%Y%m%d")
-    archive_name = f"workflow-{label}-aborted-{date_str}"
+    archive_name = f"{date_str}-{primary_type}-{name_part}-aborted"
 
-    archive_dir = project_root / "docs" / "archive" / archive_name
+    archive_dir = project_root / "docs" / "workflow" / "archive" / archive_name
     if archive_dir.exists():
         counter = 2
         while archive_dir.exists():
             archive_dir = (
-                project_root / "docs" / "archive" / f"{archive_name}-{counter}"
+                project_root / "docs" / "workflow" / "archive" / f"{archive_name}-{counter}"
             )
             counter += 1
 
@@ -87,21 +105,25 @@ def archive_mode(project_root: Path, config: dict, label: str) -> None:
             print(f"  - 跳过（不存在）: {src.relative_to(project_root)}")
             skipped_count += 1
 
-    # 移动 ABORT_REPORT.md（如果存在）
-    abort_report = project_root / "docs" / "ABORT_REPORT.md"
+    # 移动 ABORT_REPORT.md（如果存在，新路径优先，旧路径回退）
+    abort_report = project_root / "docs" / "workflow" / "ABORT_REPORT.md"
+    if not abort_report.exists():
+        abort_report = project_root / "docs" / "ABORT_REPORT.md"
     if abort_report.exists():
         dst = archive_dir / "ABORT_REPORT.md"
         shutil.move(str(abort_report), str(dst))
-        print(f"  ✓ 移动: docs/ABORT_REPORT.md → {dst.relative_to(project_root)}")
+        print(f"  ✓ 移动: {abort_report.relative_to(project_root)} → {dst.relative_to(project_root)}")
         moved_count += 1
 
-    # 归档并删除 workflow.json
-    workflow_path = project_root / ".claude" / "workflow.json"
+    # 归档并删除 workflow.json（新路径优先，旧路径回退）
+    workflow_path = project_root / "docs" / "workflow" / "workflow.json"
+    if not workflow_path.exists():
+        workflow_path = project_root / ".claude" / "workflow.json"
     if workflow_path.exists():
         workflow_dst = archive_dir / "workflow.json"
         shutil.copy2(str(workflow_path), str(workflow_dst))
         workflow_path.unlink()
-        print(f"  ✓ 归档并移除: .claude/workflow.json")
+        print(f"  ✓ 归档并移除: {workflow_path.relative_to(project_root)}")
 
     print()
     print(f"归档完成！")
@@ -126,18 +148,22 @@ def delete_mode(project_root: Path, config: dict) -> None:
             print(f"  - 跳过（不存在）: {src.relative_to(project_root)}")
             skipped_count += 1
 
-    # 删除 ABORT_REPORT.md（如果存在）
-    abort_report = project_root / "docs" / "ABORT_REPORT.md"
+    # 删除 ABORT_REPORT.md（如果存在，新路径优先，旧路径回退）
+    abort_report = project_root / "docs" / "workflow" / "ABORT_REPORT.md"
+    if not abort_report.exists():
+        abort_report = project_root / "docs" / "ABORT_REPORT.md"
     if abort_report.exists():
         abort_report.unlink()
-        print(f"  ✓ 删除: docs/ABORT_REPORT.md")
+        print(f"  ✓ 删除: {abort_report.relative_to(project_root)}")
         deleted_count += 1
 
-    # 删除 workflow.json
-    workflow_path = project_root / ".claude" / "workflow.json"
+    # 删除 workflow.json（新路径优先，旧路径回退）
+    workflow_path = project_root / "docs" / "workflow" / "workflow.json"
+    if not workflow_path.exists():
+        workflow_path = project_root / ".claude" / "workflow.json"
     if workflow_path.exists():
         workflow_path.unlink()
-        print(f"  ✓ 删除: .claude/workflow.json")
+        print(f"  ✓ 删除: {workflow_path.relative_to(project_root)}")
 
     print()
     print(f"删除完成！")
@@ -154,10 +180,12 @@ def main() -> None:
         print(f"错误: 项目目录不存在: {project_root}", file=sys.stderr)
         sys.exit(1)
 
-    # 读取 workflow.json
-    workflow_path = project_root / ".claude" / "workflow.json"
+    # 读取 workflow.json（新路径优先，旧路径回退）
+    workflow_path = project_root / "docs" / "workflow" / "workflow.json"
     if not workflow_path.exists():
-        print(f"错误: workflow.json 不存在: {workflow_path}", file=sys.stderr)
+        workflow_path = project_root / ".claude" / "workflow.json"
+    if not workflow_path.exists():
+        print(f"错误: workflow.json 不存在", file=sys.stderr)
         print("提示: 可能项目尚未初始化，或已经归档/终止过了")
         sys.exit(1)
 

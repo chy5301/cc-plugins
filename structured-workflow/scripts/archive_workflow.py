@@ -12,10 +12,20 @@
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
+
+
+def slugify(text: str) -> str:
+    """将文本转为目录名安全的 slug（小写字母、数字、短横线）"""
+    text = text.lower().strip()
+    text = re.sub(r"[^a-z0-9\s-]", "", text)
+    text = re.sub(r"[\s_]+", "-", text)
+    text = re.sub(r"-+", "-", text)
+    return text.strip("-")
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,10 +50,12 @@ def main() -> None:
         print(f"错误: 项目目录不存在: {project_root}", file=sys.stderr)
         sys.exit(1)
 
-    # 读取 workflow.json
-    workflow_path = project_root / ".claude" / "workflow.json"
+    # 读取 workflow.json（新路径优先，旧路径回退）
+    workflow_path = project_root / "docs" / "workflow" / "workflow.json"
     if not workflow_path.exists():
-        print(f"错误: workflow.json 不存在: {workflow_path}", file=sys.stderr)
+        workflow_path = project_root / ".claude" / "workflow.json"
+    if not workflow_path.exists():
+        print(f"错误: workflow.json 不存在", file=sys.stderr)
         print("提示: 可能项目尚未初始化，或已经归档过了")
         sys.exit(1)
 
@@ -51,16 +63,23 @@ def main() -> None:
         config = json.load(f)
 
     # 确定归档目录名
-    label = args.label or config.get("primaryType", "generic")
+    primary_type = config.get("primaryType", "generic")
+    task_name = config.get("taskName", "")
+    if args.label:
+        name_part = slugify(args.label)
+    elif task_name:
+        name_part = slugify(task_name)
+    else:
+        name_part = primary_type
     date_str = datetime.now().strftime("%Y%m%d")
-    archive_name = f"workflow-{label}-{date_str}"
+    archive_name = f"{date_str}-{primary_type}-{name_part}"
 
-    archive_dir = project_root / "docs" / "archive" / archive_name
+    archive_dir = project_root / "docs" / "workflow" / "archive" / archive_name
     if archive_dir.exists():
         # 如果同一天已有归档，追加序号
         counter = 2
         while archive_dir.exists():
-            archive_dir = project_root / "docs" / "archive" / f"{archive_name}-{counter}"
+            archive_dir = project_root / "docs" / "workflow" / "archive" / f"{archive_name}-{counter}"
             counter += 1
 
     archive_dir.mkdir(parents=True, exist_ok=True)
@@ -69,10 +88,10 @@ def main() -> None:
     # 要归档的状态文件
     state_files = config.get("stateFiles", {})
     default_files = {
-        "analysis": "docs/TASK_ANALYSIS.md",
-        "plan": "docs/TASK_PLAN.md",
-        "status": "docs/TASK_STATUS.md",
-        "dependencyMap": "docs/DEPENDENCY_MAP.md",
+        "analysis": "docs/workflow/TASK_ANALYSIS.md",
+        "plan": "docs/workflow/TASK_PLAN.md",
+        "status": "docs/workflow/TASK_STATUS.md",
+        "dependencyMap": "docs/workflow/DEPENDENCY_MAP.md",
     }
 
     moved_count = 0
@@ -94,7 +113,7 @@ def main() -> None:
     workflow_dst = archive_dir / "workflow.json"
     shutil.copy2(str(workflow_path), str(workflow_dst))
     workflow_path.unlink()
-    print(f"  ✓ 归档并移除: .claude/workflow.json")
+    print(f"  ✓ 归档并移除: {workflow_path.relative_to(project_root)}")
 
     # 输出摘要
     print()

@@ -16,7 +16,7 @@ allowed-tools: Read, Glob, Grep, Write, Edit
 
 ### 步骤 1：问题分析
 
-1. 读取 `.claude/workflow.json` 和 TASK_STATUS.md，了解当前进度
+1. 读取 `docs/workflow/workflow.json` 和 TASK_STATUS.md，了解当前进度
 2. 读取 TASK_PLAN.md，了解当前任务和整体计划
 3. 分析用户描述的问题：
    - 问题的本质是什么？

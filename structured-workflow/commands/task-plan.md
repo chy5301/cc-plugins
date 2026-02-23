@@ -16,7 +16,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 ## 前置检查
 
-1. 读取 `.claude/workflow.json`，获取配置
+1. 读取 `docs/workflow/workflow.json`，获取配置
 2. 检查 TASK_PLAN.md 是否存在（路径来自 `workflow.json` 的 `stateFiles.plan`）
 3. 判断：
    - TASK_PLAN.md **不存在** → 提示用户：`TASK_PLAN.md 不存在，请先运行 /task-init 完成初始化和规划。`，然后终止
@@ -29,7 +29,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 ### 步骤 1：加载当前状态
 
-- 读取 `.claude/workflow.json`
+- 读取 `docs/workflow/workflow.json`
 - 读取 TASK_PLAN.md（当前计划）
 - 读取 TASK_STATUS.md（当前进度，了解哪些任务已完成/进行中）
 

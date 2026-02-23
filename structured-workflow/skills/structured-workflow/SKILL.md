@@ -2,7 +2,8 @@
 name: structured-workflow
 description: "大型工程任务的结构化管理方法论。提供分阶段里程碑规划、
   粒度约束任务分解、执行协议和会话交接管理。当项目中存在
-  .claude/workflow.json 或 docs/TASK_STATUS.md 时自动激活。
+  docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md
+  （或旧路径 .claude/workflow.json、docs/TASK_STATUS.md）时自动激活。
   配合 /task-init, /task-plan, /task-exec, /task-pause,
   /task-review, /task-abort, /task-archive 使用。"
 ---
@@ -107,11 +108,12 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 
 ## workflow.json 配置说明
 
-`workflow.json` 位于项目的 `.claude/` 目录下，由 `/task-init` 自动生成。
+`workflow.json` 位于项目的 `docs/workflow/` 目录下，由 `/task-init` 自动生成。
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
+  "taskName": "<任务名称slug>",
   "primaryType": "<任务类型>",
   "secondaryTags": [],
   "taskPrefix": "<编号前缀>",
@@ -120,10 +122,10 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
     "maxHoursPerTask": 3
   },
   "stateFiles": {
-    "analysis": "docs/TASK_ANALYSIS.md",
-    "plan": "docs/TASK_PLAN.md",
-    "status": "docs/TASK_STATUS.md",
-    "dependencyMap": "docs/DEPENDENCY_MAP.md"
+    "analysis": "docs/workflow/TASK_ANALYSIS.md",
+    "plan": "docs/workflow/TASK_PLAN.md",
+    "status": "docs/workflow/TASK_STATUS.md",
+    "dependencyMap": "docs/workflow/DEPENDENCY_MAP.md"
   },
   "phases": [],
   "projectContext": {
@@ -156,12 +158,14 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 
 ## 状态文件体系
 
+所有状态文件位于 `docs/workflow/` 目录下：
+
 | 文件 | 用途 | 生成时机 |
 |------|------|----------|
-| `TASK_ANALYSIS.md` | 分析报告 | `/task-init` |
-| `TASK_PLAN.md` | 任务清单 | `/task-init`，`/task-plan` 增量更新 |
-| `TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-init`，每次 `/task-exec` 更新 |
-| `DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-init` |
+| `docs/workflow/TASK_ANALYSIS.md` | 分析报告 | `/task-init` |
+| `docs/workflow/TASK_PLAN.md` | 任务清单 | `/task-init`，`/task-plan` 增量更新 |
+| `docs/workflow/TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-init`，每次 `/task-exec` 更新 |
+| `docs/workflow/DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-init` |
 
 ---
 

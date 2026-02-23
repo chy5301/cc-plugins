@@ -18,7 +18,7 @@ allowed-tools: Bash, Read, Write, Grep
 
 ### 步骤 1：完成度确认
 
-1. 读取 `.claude/workflow.json` 和 TASK_STATUS.md
+1. 读取 `docs/workflow/workflow.json` 和 TASK_STATUS.md
 2. 统计任务完成情况：
    - 总任务数
    - 已完成数
@@ -68,7 +68,7 @@ allowed-tools: Bash, Read, Write, Grep
 - 教训 2: ...
 ```
 
-将摘要写入 `docs/archive/workflow-{type}-{date}/SUMMARY.md`。
+将摘要写入 `docs/workflow/archive/{date}-{type}-{taskName}/SUMMARY.md`。
 
 如果 `$ARGUMENTS` 包含 `--summary`，到此步停止，不执行后续归档操作。
 
@@ -85,12 +85,12 @@ allowed-tools: Bash, Read, Write, Grep
 ### 步骤 4：验证清理
 
 确认以下文件已正确处理：
-- [ ] `docs/archive/workflow-{type}-{date}/` 目录存在且包含所有文件
-- [ ] `docs/archive/workflow-{type}-{date}/SUMMARY.md` 已生成
-- [ ] `.claude/workflow.json` 已移除
-- [ ] `docs/TASK_ANALYSIS.md` 已移除
-- [ ] `docs/TASK_PLAN.md` 已移除
-- [ ] `docs/TASK_STATUS.md` 已移除
+- [ ] `docs/workflow/archive/{date}-{type}-{taskName}/` 目录存在且包含所有文件
+- [ ] `docs/workflow/archive/{date}-{type}-{taskName}/SUMMARY.md` 已生成
+- [ ] `docs/workflow/workflow.json` 已移除
+- [ ] `docs/workflow/TASK_ANALYSIS.md` 已移除
+- [ ] `docs/workflow/TASK_PLAN.md` 已移除
+- [ ] `docs/workflow/TASK_STATUS.md` 已移除
 
 ### 步骤 5：完成报告
 

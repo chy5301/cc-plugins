@@ -166,11 +166,12 @@ structured-workflow/
 
 ## 项目级配置
 
-初始化后，项目中会生成 `.claude/workflow.json`，可自定义：
+初始化后，项目中会生成 `docs/workflow/workflow.json`，可自定义：
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
+  "taskName": "extract-auth-module",
   "primaryType": "refactor",
   "taskPrefix": "R",
   "constraints": {

@@ -20,7 +20,7 @@ allowed-tools: Bash, Read, Write, Grep
 
 ### 步骤 1：读取工作流状态
 
-1. 读取 `.claude/workflow.json`
+1. 读取 `docs/workflow/workflow.json`
 2. 读取 TASK_STATUS.md
 3. 统计任务完成情况：
    - ✅ 已完成数
@@ -99,7 +99,7 @@ allowed-tools: Bash, Read, Write, Grep
 
 #### 归档模式
 
-1. 生成终止报告 `docs/ABORT_REPORT.md`：
+1. 生成终止报告 `docs/workflow/ABORT_REPORT.md`：
 
 ```markdown
 # 工作流终止报告
@@ -142,7 +142,7 @@ allowed-tools: Bash, Read, Write, Grep
 ### 步骤 5：验证清理
 
 确认以下条件：
-- [ ] `.claude/workflow.json` 已移除
+- [ ] `docs/workflow/workflow.json` 已移除
 - [ ] 状态文件已归档或删除
 - [ ] 如果执行了 `--reset`：HEAD 指向 initCommit
 
