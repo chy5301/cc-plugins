@@ -1,6 +1,6 @@
 # 分类型规划 Prompt
 
-本文档包含 8 种任务类型的规划 prompt。`/task-plan` 根据 `primaryType` 加载对应章节。
+本文档包含 8 种任务类型的规划 prompt。`/task-adjust` 根据 `primaryType` 加载对应章节。
 
 ---
 

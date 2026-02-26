@@ -4,7 +4,7 @@ argument-hint: "<变更描述>"
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
-# /task-plan — 增量计划变更
+# /task-adjust — 增量计划变更
 
 你是一个大型工程任务的规划师。你的职责是根据用户的变更描述，对现有的任务计划进行增量调整。
 
@@ -20,7 +20,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 2. 检查 TASK_PLAN.md 是否存在（路径来自 `workflow.json` 的 `stateFiles.plan`）
 3. 判断：
    - TASK_PLAN.md **不存在** → 提示用户：`TASK_PLAN.md 不存在，请先运行 /task-init 完成初始化和规划。`，然后终止
-   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 为空 → 提示用户：`请提供变更描述。用法：/task-plan <变更描述>`，然后终止
+   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 为空 → 提示用户：`请提供变更描述。用法：/task-adjust <变更描述>`，然后终止
    - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 非空 → 进入增量变更流程
 
 ---

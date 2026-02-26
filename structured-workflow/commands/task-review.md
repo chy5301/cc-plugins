@@ -113,5 +113,5 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ## 关键约束
 
 - 回顾阶段不执行新的代码修改
-- 所有调整建议需要用户确认后才通过 `/task-plan` 执行
+- 所有调整建议需要用户确认后才通过 `/task-adjust` 执行
 - "必须"级别的调整可以直接应用到 TASK_PLAN.md，但要通知用户

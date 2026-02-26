@@ -4,7 +4,7 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
   粒度约束任务分解、执行协议和会话交接管理。当项目中存在
   docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md
   （或旧路径 .claude/workflow.json、docs/TASK_STATUS.md）时自动激活。
-  配合 /task-init, /task-plan, /task-exec, /task-pause,
+  配合 /task-init, /task-adjust, /task-exec, /task-pause,
   /task-review, /task-abort, /task-archive 使用。"
 ---
 
@@ -49,7 +49,7 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
 
 `/task-init` **不要在 plan mode 下使用**。`/task-init` 需要运行初始化脚本、创建 workflow.json、写入分析报告和任务计划等多个文件，plan mode 的只读限制会阻断这些操作，导致工作流无法正常初始化。`/task-init` 自身已内置类型确认、配置确认、策略确认等用户审批点，不需要 plan mode 额外辅助。
 
-其他命令（`/task-exec`、`/task-plan`、`/task-review` 等）可根据需要配合 plan mode 使用。
+其他命令（`/task-exec`、`/task-adjust`、`/task-review` 等）可根据需要配合 plan mode 使用。
 
 ---
 
@@ -72,7 +72,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 ### Phase 1: 执行 (`/task-exec` 循环)
 - 逐任务执行，每次一个
 - 遇到问题时 `/task-pause` 分析
-- 需要调整计划时 `/task-plan [变更描述]`
+- 需要调整计划时 `/task-adjust [变更描述]`
 
 ### Phase 2: 回顾 (`/task-review`)
 - 每个阶段完成后执行
@@ -97,7 +97,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 | 命令 | 用途 | 使用时机 |
 |------|------|----------|
 | `/task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时（一步到位） |
-| `/task-plan [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
+| `/task-adjust [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
 | `/task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
 | `/task-pause [问题]` | 问题分析暂停 | 执行中遇到阻塞时 |
 | `/task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
@@ -163,7 +163,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 | 文件 | 用途 | 生成时机 |
 |------|------|----------|
 | `docs/workflow/TASK_ANALYSIS.md` | 分析报告 | `/task-init` |
-| `docs/workflow/TASK_PLAN.md` | 任务清单 | `/task-init`，`/task-plan` 增量更新 |
+| `docs/workflow/TASK_PLAN.md` | 任务清单 | `/task-init`，`/task-adjust` 增量更新 |
 | `docs/workflow/TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-init`，每次 `/task-exec` 更新 |
 | `docs/workflow/DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-init` |
 

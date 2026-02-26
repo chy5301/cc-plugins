@@ -28,7 +28,7 @@
 /task-init
 ```
 
-Claude 会引导你描述任务，自动识别任务类型，执行针对性分析，生成分析报告。
+Claude 会引导你描述任务，自动识别任务类型，执行针对性分析，制定策略、划分阶段、分解任务。一次性生成 TASK_ANALYSIS.md、TASK_PLAN.md 和 TASK_STATUS.md。
 
 你也可以直接指定类型：
 
@@ -36,15 +36,7 @@ Claude 会引导你描述任务，自动识别任务类型，执行针对性分�
 /task-init refactor
 ```
 
-### 2. 制定任务计划
-
-```
-/task-plan
-```
-
-基于分析结果，制定策略、划分阶段、分解任务。生成 TASK_PLAN.md 和 TASK_STATUS.md。
-
-### 3. 逐任务执行
+### 2. 逐任务执行
 
 ```
 /task-exec R-01
@@ -52,7 +44,7 @@ Claude 会引导你描述任务，自动识别任务类型，执行针对性分�
 
 按 6 步协议执行单个任务：复述确认 → 最小变更路径 → 实施 → 验证 → 状态更新 → 完成汇报。
 
-### 4. 遇到问题时暂停分析
+### 3. 遇到问题时暂停分析
 
 ```
 /task-pause 编译报错，头文件循环引用
@@ -60,7 +52,7 @@ Claude 会引导你描述任务，自动识别任务类型，执行针对性分�
 
 仅分析问题、评估影响、提出方案，不修改代码。
 
-### 5. 阶段回顾
+### 4. 阶段回顾
 
 ```
 /task-review Phase 0
@@ -68,15 +60,15 @@ Claude 会引导你描述任务，自动识别任务类型，执行针对性分�
 
 汇总检查、退出标准验证、构建验证、下游影响评估。
 
-### 6. 执行过程中调整计划
+### 5. 执行过程中调整计划
 
 ```
-/task-plan 在R-05后面加一个缓存层任务
-/task-plan 删除R-08
-/task-plan 调整R-06和R-07的执行顺序
+/task-adjust 在R-05后面加一个缓存层任务
+/task-adjust 删除R-08
+/task-adjust 调整R-06和R-07的执行顺序
 ```
 
-### 8. 需要放弃时终止
+### 6. 需要放弃时终止
 
 ```
 /task-abort 方案不可行，需要换技术路线
@@ -90,7 +82,7 @@ Claude 会引导你描述任务，自动识别任务类型，执行针对性分�
 /task-abort --reset 方案不可行
 ```
 
-### 9. 全部完成后归档
+### 7. 全部完成后归档
 
 ```
 /task-archive
@@ -102,9 +94,8 @@ Claude 会引导你描述任务，自动识别任务类型，执行针对性分�
 
 | 命令 | 用途 | 使用时机 |
 |------|------|----------|
-| `/task-init [type]` | 初始化 + 分析 | 大型任务开始时 |
-| `/task-plan` | 初始规划 | 分析完成后 |
-| `/task-plan [变更]` | 增量变更 | 需调整计划时 |
+| `/task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时 |
+| `/task-adjust [变更]` | 增量计划变更 | 需调整计划时 |
 | `/task-exec [T-XX]` | 执行单个任务 | 日常执行 |
 | `/task-pause [问题]` | 问题分析 | 遇到阻塞时 |
 | `/task-review [Phase]` | 阶段回顾 | 阶段完成后 |
@@ -143,7 +134,7 @@ structured-workflow/
 ├── README.md                    # 本文件
 ├── commands/                    # 斜杠命令
 │   ├── task-init.md
-│   ├── task-plan.md
+│   ├── task-adjust.md
 │   ├── task-exec.md
 │   ├── task-pause.md
 │   ├── task-review.md
@@ -189,13 +180,11 @@ structured-workflow/
 ## 工作流全景
 
 ```
-/task-init     →  分析报告 (TASK_ANALYSIS.md)
-                      ↓ 用户确认
-/task-plan     →  任务计划 (TASK_PLAN.md + TASK_STATUS.md)
+/task-init     →  分析 + 规划 (TASK_ANALYSIS.md + TASK_PLAN.md + TASK_STATUS.md)
                       ↓ 用户审阅
 /task-exec     →  逐任务执行 (循环)
   /task-pause  →    遇到问题时分析
-  /task-plan   →    需要时调整计划
+  /task-adjust   →    需要时调整计划
   /task-abort  →    需要放弃时终止
                       ↓ 阶段完成
 /task-review   →  阶段回顾
