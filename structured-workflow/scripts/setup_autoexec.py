@@ -7,9 +7,10 @@
     uv run setup_autoexec.py --path <project-root> [options]
 
 选项:
-    --max <N>       覆盖最大迭代次数（最小 3）
-    --all           统计所有阶段的剩余任务（默认仅当前阶段）
-    --phase <N>     指定目标阶段编号（对应 Phase 0, Phase 1, ...）
+    --max <N>         覆盖最大迭代次数（最小 3）
+    --all             统计所有阶段的剩余任务（默认仅当前阶段）
+    --phase <RANGE>   阶段范围（如 1, 1-3, 0,2）
+    --task <RANGE>    任务编号范围（如 1-5, 1,3,7），指定时忽略 --phase
 """
 
 import argparse
@@ -31,6 +32,19 @@ STATUS_EMOJIS = {
     "❌": "cancelled",
     "🔀": "split",
 }
+
+
+def parse_range(value: str) -> list[int]:
+    """解析范围字符串：'2' → [2], '1-3' → [1,2,3], '1,3,5' → [1,3,5], '1-3,7' → [1,2,3,7]"""
+    result = []
+    for part in value.split(","):
+        part = part.strip()
+        if "-" in part:
+            start, end = part.split("-", 1)
+            result.extend(range(int(start), int(end) + 1))
+        else:
+            result.append(int(part))
+    return sorted(set(result))
 
 
 def detect_ralph_loop() -> bool:
@@ -140,12 +154,21 @@ def find_current_phase(tasks: list[dict], phases: list[dict]) -> int:
 
 
 def count_remaining_tasks(
-    tasks: list[dict], phase: int | None, count_all: bool
+    tasks: list[dict],
+    phase_list: list[int] | None,
+    task_nums: list[int] | None,
+    task_prefix: str,
+    count_all: bool,
 ) -> int:
     """计算剩余可执行任务数"""
     remaining = [t for t in tasks if t["status"] in ("pending", "in_progress")]
-    if not count_all and phase is not None:
-        remaining = [t for t in remaining if t["phase"] == phase]
+
+    if task_nums is not None:
+        target_ids = {f"{task_prefix}-{n:02d}" for n in task_nums}
+        remaining = [t for t in remaining if t["id"] in target_ids]
+    elif not count_all and phase_list is not None:
+        remaining = [t for t in remaining if t["phase"] in phase_list]
+
     return len(remaining)
 
 
@@ -159,7 +182,23 @@ def build_phase_info(phases: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def build_prompt(workflow: dict) -> str:
+def build_scope_constraint(
+    task_nums: list[int] | None,
+    phase_list: list[int] | None,
+    prefix: str,
+    count_all: bool,
+) -> str:
+    """根据参数构建执行范围约束文本"""
+    if task_nums is not None:
+        ids = ", ".join(f"{prefix}-{n:02d}" for n in task_nums)
+        return f"\n\n**执行范围限制**：仅执行以下任务：{ids}。跳过不在此列表中的任务。\n"
+    if not count_all and phase_list is not None:
+        phases_str = "、".join(f"Phase {p}" for p in phase_list)
+        return f"\n\n**执行范围限制**：仅执行 {phases_str} 的任务。跳过其他阶段的任务。\n"
+    return ""
+
+
+def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
     """构建自动执行协议 prompt"""
     ctx = workflow.get("projectContext", {})
     constraints = workflow.get("constraints", {})
@@ -195,7 +234,7 @@ def build_prompt(workflow: dict) -> str:
 2. ⬜ 待开始且所有依赖已完成（✅）的任务（按编号顺序）
 
 如果没有可执行任务 → 跳到「完成检查」。
-
+{scope_constraint}
 ### 3. 执行任务（自动模式）
 
 **理解**：读取任务定义和最近交接记录，记录理解要点，直接继续（不等待用户确认）。
@@ -307,7 +346,10 @@ def parse_args() -> argparse.Namespace:
         "--all", action="store_true", dest="count_all", help="统计所有阶段的剩余任务"
     )
     parser.add_argument(
-        "--phase", type=int, default=None, help="指定目标阶段编号（0-based）"
+        "--phase", type=str, default=None, help="阶段范围（如 1, 1-3, 0,2）"
+    )
+    parser.add_argument(
+        "--task", type=str, default=None, help="任务编号范围（如 1-5, 1,3,7）"
     )
     parser.add_argument(
         "--yes", action="store_true", help="（由命令层处理，脚本中忽略）"
@@ -336,13 +378,23 @@ def main() -> None:
         print("请确认工作流已完成初始化和任务规划", file=sys.stderr)
         sys.exit(1)
 
-    # 3. 确定当前阶段
-    current_phase = (
-        args.phase if args.phase is not None else find_current_phase(tasks, phases)
-    )
+    # 3. 解析范围参数
+    prefix = workflow.get("taskPrefix", "T")
+    phase_list = parse_range(args.phase) if args.phase else None
+    task_nums = parse_range(args.task) if args.task else None
+
+    # 确定阶段列表（仅在无 --task 时使用）
+    if task_nums is not None:
+        current_phases = None
+    elif phase_list is not None:
+        current_phases = phase_list
+    else:
+        current_phases = [find_current_phase(tasks, phases)]
 
     # 4. 计算任务统计
-    remaining = count_remaining_tasks(tasks, current_phase, args.count_all)
+    remaining = count_remaining_tasks(
+        tasks, current_phases, task_nums, prefix, args.count_all
+    )
     completed = sum(1 for t in tasks if t["status"] == "completed")
     blocked = sum(1 for t in tasks if t["status"] == "blocked")
     total = len(tasks)
@@ -367,21 +419,32 @@ def main() -> None:
         print("⚠ 检测到已有活跃的 ralph-loop 状态文件，将覆盖")
 
     # 8. 生成 prompt 并创建状态文件
-    prompt = build_prompt(workflow)
+    scope_constraint = build_scope_constraint(
+        task_nums, current_phases, prefix, args.count_all
+    )
+    prompt = build_prompt(workflow, scope_constraint)
     state_path = create_state_file(project_root, max_iter, prompt)
 
     # 9. 输出摘要
-    scope_label = "所有阶段" if args.count_all else f"Phase {current_phase}"
-    phase_name = (
-        phases[current_phase]["name"]
-        if current_phase < len(phases)
-        else f"Phase {current_phase}"
-    )
+    if task_nums:
+        scope_label = f"任务 {args.task}"
+    elif args.count_all:
+        scope_label = "所有阶段"
+    elif current_phases and len(current_phases) > 1:
+        scope_label = f"Phase {current_phases[0]}-{current_phases[-1]}"
+    else:
+        scope_label = f"Phase {current_phases[0]}" if current_phases else "自动检测"
 
     print("✓ 自动执行设置完成")
     print()
     print(f"  范围: {scope_label}")
-    if not args.count_all:
+    if not args.count_all and not task_nums and current_phases and len(current_phases) == 1:
+        phase_idx = current_phases[0]
+        phase_name = (
+            phases[phase_idx]["name"]
+            if phase_idx < len(phases)
+            else f"Phase {phase_idx}"
+        )
         print(f"  当前阶段: {phase_name}")
     print(f"  任务统计: 总计 {total} | 完成 {completed} | 待执行 {remaining} | 阻塞 {blocked}")
     print(f"  最大迭代: {max_iter}")

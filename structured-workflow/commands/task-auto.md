@@ -1,6 +1,6 @@
 ---
 description: 自动批量执行任务（基于 ralph-loop 自动循环）
-argument-hint: "[--max N] [--all] [--phase N] [--yes]"
+argument-hint: "[--phase RANGE] [--task RANGE] [--max N] [--all] [--yes]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
@@ -17,9 +17,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ## 输入
 
 - `$ARGUMENTS`：可选参数
+  - `--phase RANGE`：阶段范围（如 `1`, `1-3`, `0,2`）
+  - `--task RANGE`：任务编号范围（如 `1-5`, `1,3,7`），指定时忽略 `--phase`
   - `--max N`：覆盖最大迭代次数（最小 3，默认自动计算）
-  - `--all`：统计所有阶段的剩余任务（默认仅当前阶段）
-  - `--phase N`：指定目标阶段编号
+  - `--all`：所有阶段的任务
   - `--yes`：跳过确认，直接开始
 
 ## 执行流程
