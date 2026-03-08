@@ -4,7 +4,7 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
   粒度约束任务分解、执行协议和会话交接管理。当项目中存在
   docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md
   （或旧路径 .claude/workflow.json、docs/TASK_STATUS.md）时自动激活。
-  配合 /task-init, /task-adjust, /task-exec, /task-pause,
+  配合 /task-init, /task-adjust, /task-exec, /task-auto, /task-pause,
   /task-review, /task-abort, /task-archive 使用。"
 ---
 
@@ -47,7 +47,7 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
 
 ## 与 Claude Code Plan Mode 的关系
 
-`/task-init` **不要在 plan mode 下使用**。`/task-init` 需要运行初始化脚本、创建 workflow.json、写入分析报告和任务计划等多个文件，plan mode 的只读限制会阻断这些操作，导致工作流无法正常初始化。`/task-init` 自身已内置类型确认、配置确认、策略确认等用户审批点，不需要 plan mode 额外辅助。
+`/task-init` 和 `/task-auto` **不要在 plan mode 下使用**。`/task-init` 需要运行初始化脚本、创建 workflow.json、写入分析报告和任务计划等多个文件；`/task-auto` 需要运行设置脚本、创建状态文件和执行任务。plan mode 的只读限制会阻断这些操作。
 
 其他命令（`/task-exec`、`/task-adjust`、`/task-review` 等）可根据需要配合 plan mode 使用。
 
@@ -73,6 +73,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 - 逐任务执行，每次一个
 - 遇到问题时 `/task-pause` 分析
 - 需要调整计划时 `/task-adjust [变更描述]`
+- 批量自动执行时 `/task-auto`（需 ralph-loop 插件）
 
 ### Phase 2: 回顾 (`/task-review`)
 - 每个阶段完成后执行
@@ -99,6 +100,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 | `/task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时（一步到位） |
 | `/task-adjust [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
 | `/task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
+| `/task-auto [--max N] [--all]` | 自动批量执行 | 连续自动执行多个任务时（需 ralph-loop 插件） |
 | `/task-pause [问题]` | 问题分析暂停 | 执行中遇到阻塞时 |
 | `/task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
 | `/task-abort [--reset] [原因]` | 终止 + 清理 | 需要放弃整个工作流时 |
