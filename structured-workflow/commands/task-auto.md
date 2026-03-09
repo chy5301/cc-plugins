@@ -32,13 +32,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 2：运行设置脚本
 
-```!
-uv run "${CLAUDE_PLUGIN_ROOT}/scripts/setup_autoexec.py" --path <PROJECT_ROOT> $ARGUMENTS
-```
+运行设置脚本：`uv run "${CLAUDE_PLUGIN_ROOT}/scripts/setup_autoexec.py" --path <PROJECT_ROOT> $ARGUMENTS`
 
-将 `$ARGUMENTS` 中的参数直接透传给脚本（`--yes` 由脚本接受但忽略）。
-
-`<PROJECT_ROOT>` 替换为当前项目的根目录绝对路径。
+- `<PROJECT_ROOT>` 替换为当前项目的根目录绝对路径
+- 将 `$ARGUMENTS` 中的参数直接透传给脚本（`--yes` 由脚本接受但忽略）
 
 ### 步骤 3：确认启动
 
