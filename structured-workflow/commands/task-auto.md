@@ -29,6 +29,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/task-init`）
 2. 确认 `docs/workflow/TASK_STATUS.md` 存在且有待执行任务
+3. 检查 ralph-loop 插件的运行环境：
+   - 运行 `jq --version` 检查 `jq` 是否可用
+   - 如果 `jq` 不可用且 ralph-loop 已安装：**警告**用户 ralph-loop 的 stop hook 依赖 `jq`，自动循环将无法工作，建议先安装 `jq`（如 `winget install jqlang.jq`）
+   - 如果 `jq` 不可用且 ralph-loop 未安装：无需警告（本身就不会自动循环）
 
 ### 步骤 2：运行设置脚本
 
