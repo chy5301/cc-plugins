@@ -4,8 +4,10 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
   粒度约束任务分解、执行协议和会话交接管理。当项目中存在
   docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md
   （或旧路径 .claude/workflow.json、docs/TASK_STATUS.md）时自动激活。
-  配合 /task-init, /task-adjust, /task-exec, /task-auto,
-  /task-review, /task-abort, /task-archive 使用。"
+  配合 /structured-workflow:task-init, /structured-workflow:task-adjust,
+  /structured-workflow:task-exec, /structured-workflow:task-auto,
+  /structured-workflow:task-review, /structured-workflow:task-abort,
+  /structured-workflow:task-archive 使用。"
 ---
 
 # 结构化工作流系统
@@ -38,7 +40,7 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
 4 种标准异常处理程序：任务过大→拆分、计划有误→停止等待确认、前置未完成→告知依赖、范围蔓延→完成范围内工作并记录范围外需求。
 
 ### 6. 阶段退出标准
-每个阶段（Phase）有明确的退出标准。阶段内所有任务完成后，必须通过 `/task-review` 验证退出标准才能进入下一阶段。
+每个阶段（Phase）有明确的退出标准。阶段内所有任务完成后，必须通过 `/structured-workflow:task-review` 验证退出标准才能进入下一阶段。
 
 ### 7. 中央状态跟踪
 所有进度、决策、问题、变更都记录在中央状态文件（TASK_STATUS.md）中。状态文件是唯一的事实来源，用于跨会话信息传递。
@@ -47,9 +49,9 @@ description: "大型工程任务的结构化管理方法论。提供分阶段里
 
 ## 与 Claude Code Plan Mode 的关系
 
-`/task-init` 和 `/task-auto` **不要在 plan mode 下使用**。`/task-init` 需要运行初始化脚本、创建 workflow.json、写入分析报告和任务计划等多个文件；`/task-auto` 需要运行设置脚本、创建状态文件和执行任务。plan mode 的只读限制会阻断这些操作。
+`/structured-workflow:task-init` 和 `/structured-workflow:task-auto` **不要在 plan mode 下使用**。`/structured-workflow:task-init` 需要运行初始化脚本、创建 workflow.json、写入分析报告和任务计划等多个文件；`/structured-workflow:task-auto` 需要运行设置脚本、创建状态文件和执行任务。plan mode 的只读限制会阻断这些操作。
 
-其他命令（`/task-exec`、`/task-adjust`、`/task-review` 等）可根据需要配合 plan mode 使用。
+其他命令（`/structured-workflow:task-exec`、`/structured-workflow:task-adjust`、`/structured-workflow:task-review` 等）可根据需要配合 plan mode 使用。
 
 ---
 
@@ -61,7 +63,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
                  任意阶段 →（放弃）→ Abort
 ```
 
-### Phase 0: 初始化 + 分析 + 规划 (`/task-init`)
+### Phase 0: 初始化 + 分析 + 规划 (`/structured-workflow:task-init`)
 - 创建项目配置（workflow.json）
 - 自动分诊任务类型
 - 执行针对性分析，输出 TASK_ANALYSIS.md
@@ -69,23 +71,23 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 - 分解任务（遵循粒度约束）
 - 输出 TASK_PLAN.md + TASK_STATUS.md
 
-### Phase 1: 执行 (`/task-exec` 循环)
+### Phase 1: 执行 (`/structured-workflow:task-exec` 循环)
 - 逐任务执行，每次一个
-- 需要调整计划时 `/task-adjust [变更描述]`
-- 批量自动执行时 `/task-auto`（需 ralph-loop 插件）
+- 需要调整计划时 `/structured-workflow:task-adjust [变更描述]`
+- 批量自动执行时 `/structured-workflow:task-auto`（需 ralph-loop 插件）
 
-### Phase 2: 回顾 (`/task-review`)
+### Phase 2: 回顾 (`/structured-workflow:task-review`)
 - 每个阶段完成后执行
 - 验证退出标准
 - 评估下游影响
 
-### 异常终止 (`/task-abort`)
+### 异常终止 (`/structured-workflow:task-abort`)
 - 在任意阶段放弃整个工作流
 - 默认仅清理状态文件，不触碰代码
 - 可选 `--reset` 回滚到工作流初始 commit（需二次确认）
 - 生成终止报告，记录进度快照和 commit 列表
 
-### Phase 3: 归档 (`/task-archive`)
+### Phase 3: 归档 (`/structured-workflow:task-archive`)
 - 生成完成摘要
 - 归档状态文件
 - 清理环境
@@ -96,19 +98,19 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 
 | 命令 | 用途 | 使用时机 |
 |------|------|----------|
-| `/task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时（一步到位） |
-| `/task-adjust [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
-| `/task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
-| `/task-auto [--max N] [--all]` | 自动批量执行 | 连续自动执行多个任务时（需 ralph-loop 插件） |
-| `/task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
-| `/task-abort [--reset] [原因]` | 终止 + 清理 | 需要放弃整个工作流时 |
-| `/task-archive` | 归档清理 | 所有阶段完成后 |
+| `/structured-workflow:task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时（一步到位） |
+| `/structured-workflow:task-adjust [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
+| `/structured-workflow:task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
+| `/structured-workflow:task-auto [--max N] [--all]` | 自动批量执行 | 连续自动执行多个任务时（需 ralph-loop 插件） |
+| `/structured-workflow:task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
+| `/structured-workflow:task-abort [--reset] [原因]` | 终止 + 清理 | 需要放弃整个工作流时 |
+| `/structured-workflow:task-archive` | 归档清理 | 所有阶段完成后 |
 
 ---
 
 ## workflow.json 配置说明
 
-`workflow.json` 位于项目的 `docs/workflow/` 目录下，由 `/task-init` 自动生成。
+`workflow.json` 位于项目的 `docs/workflow/` 目录下，由 `/structured-workflow:task-init` 自动生成。
 
 ```json
 {
@@ -162,10 +164,10 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 
 | 文件 | 用途 | 生成时机 |
 |------|------|----------|
-| `docs/workflow/TASK_ANALYSIS.md` | 分析报告 | `/task-init` |
-| `docs/workflow/TASK_PLAN.md` | 任务清单 | `/task-init`，`/task-adjust` 增量更新 |
-| `docs/workflow/TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-init`，每次 `/task-exec` 更新 |
-| `docs/workflow/DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-init` |
+| `docs/workflow/TASK_ANALYSIS.md` | 分析报告 | `/structured-workflow:task-init` |
+| `docs/workflow/TASK_PLAN.md` | 任务清单 | `/structured-workflow:task-init`，`/structured-workflow:task-adjust` 增量更新 |
+| `docs/workflow/TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/structured-workflow:task-init`，每次 `/structured-workflow:task-exec` 更新 |
+| `docs/workflow/DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/structured-workflow:task-init` |
 
 ---
 
