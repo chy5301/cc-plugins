@@ -139,7 +139,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 - 关键依赖关系
 - 建议的起始任务
 
-明确告知：**请审阅任务计划，确认后使用 `/task-exec [任务编号]` 开始执行**。
+明确告知：**请审阅任务计划，确认后使用 `/structured-workflow:task-exec [任务编号]` 开始执行**。
 
 ## 生成的文件
 

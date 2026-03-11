@@ -27,7 +27,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 1：前置检查
 
-1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/task-init`）
+1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/structured-workflow:task-init`）
 2. 确认 `docs/workflow/TASK_STATUS.md` 存在且有待执行任务
 3. 检查 ralph-loop 插件的运行环境：
    - 运行 `jq --version` 检查 `jq` 是否可用

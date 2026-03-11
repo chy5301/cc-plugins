@@ -98,7 +98,7 @@ allowed-tools: Bash, Read, Write, Grep
 - 归档目录位置
 - 归档的文件列表
 - 项目已恢复"干净"状态
-- 可以使用 `/task-init` 开始新一轮大型任务
+- 可以使用 `/structured-workflow:task-init` 开始新一轮大型任务
 
 ---
 

@@ -157,7 +157,7 @@ allowed-tools: Bash, Read, Write, Grep
   - 已回滚：回滚到 `<initCommit>`
   - 未回滚：附上参考 git 命令（如果 initCommit 有效）
 - 如果执行了 stash：提示 `git stash pop` 恢复暂存更改
-- 提示可使用 `/task-init` 开始新工作流
+- 提示可使用 `/structured-workflow:task-init` 开始新工作流
 
 ---
 

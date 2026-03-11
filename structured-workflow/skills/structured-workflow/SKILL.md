@@ -2,8 +2,9 @@
 name: structured-workflow
 description: "大型工程任务的结构化管理方法论。提供分阶段里程碑规划、
   粒度约束任务分解、执行协议和会话交接管理。当项目中存在
-  docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md
-  （或旧路径 .claude/workflow.json、docs/TASK_STATUS.md）时自动激活。
+  docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md 时自动激活。
+  当用户提到大型重构、跨会话任务、技术迁移、大规模修改、
+  多阶段工程任务等场景时，建议使用本工作流系统。
   配合 /structured-workflow:task-init, /structured-workflow:task-adjust,
   /structured-workflow:task-exec, /structured-workflow:task-auto,
   /structured-workflow:task-review, /structured-workflow:task-abort,
