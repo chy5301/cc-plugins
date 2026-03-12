@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """结构化工作流 - 自动执行设置脚本
 
-读取工作流状态，计算默认参数，检测 Ralph Loop 插件，生成自动执行状态文件。
+读取工作流状态，计算默认参数，生成自动执行状态文件，注册项目级 Stop hook。
 
 用法:
     uv run setup_autoexec.py --path <project-root> [options]
@@ -18,6 +18,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,16 +48,80 @@ def parse_range(value: str) -> list[int]:
     return sorted(set(result))
 
 
-def detect_ralph_loop() -> bool:
-    """检测 ralph-loop 插件是否已安装"""
-    claude_dir = Path.home() / ".claude" / "plugins" / "marketplaces"
-    if not claude_dir.exists():
-        return False
-    # 搜索所有 marketplace 下的 ralph-loop 插件
-    for hooks_file in claude_dir.glob("*/plugins/ralph-loop/hooks/hooks.json"):
-        if hooks_file.is_file():
-            return True
-    return False
+def get_script_dir() -> Path:
+    """获取脚本所在目录"""
+    return Path(__file__).resolve().parent
+
+
+def check_and_clean_residual(project_root: Path) -> None:
+    """检测并清理残留的自动执行状态
+
+    残留判定逻辑：
+    - 同一会话 → 直接覆盖（不清理 hook，后面会重新注册）
+    - 不同会话且 >24h → 自动清理（确认是残留）
+    - 不同会话且 <24h → 警告可能有其他窗口在运行，仍然覆盖
+    """
+    state_file = project_root / ".claude" / "structured-workflow-loop.local.md"
+    if not state_file.exists():
+        return
+
+    # 解析状态文件的 frontmatter
+    content = state_file.read_text(encoding="utf-8")
+    session_id = ""
+    started_at = ""
+    for line in content.split("\n"):
+        if line.startswith("session_id:"):
+            session_id = line.split(":", 1)[1].strip()
+        elif line.startswith("started_at:"):
+            started_at = line.split(":", 1)[1].strip().strip('"')
+
+    current_session = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+
+    if session_id == current_session:
+        print("⚠ 检测到当前会话的状态文件，将覆盖")
+        return
+
+    # 不同会话：检查时间
+    is_stale = False
+    if started_at:
+        try:
+            start_time = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            elapsed = datetime.now(timezone.utc) - start_time
+            is_stale = elapsed.total_seconds() > 86400  # 24 hours
+        except (ValueError, TypeError):
+            is_stale = True  # 无法解析时间，视为残留
+
+    if is_stale:
+        print("⚠ 检测到超过 24 小时的残留状态，正在清理...")
+        _run_deregister(project_root)
+    else:
+        print("⚠ 检测到其他会话的状态文件（<24h），可能有其他窗口在运行")
+        print("  将覆盖状态文件并重新注册 hook")
+        _run_deregister(project_root)
+
+
+def _run_deregister(project_root: Path) -> None:
+    """调用 manage_hooks.py deregister 清理 hook"""
+    manage_script = get_script_dir() / "manage_hooks.py"
+    subprocess.run(
+        [sys.executable, str(manage_script), "--path", str(project_root), "--action", "deregister"],
+        check=False,
+    )
+
+
+def register_hook(project_root: Path) -> None:
+    """调用 manage_hooks.py register 注册项目级 Stop hook"""
+    manage_script = get_script_dir() / "manage_hooks.py"
+    hook_source = get_script_dir() / "stop-hook.sh"
+    subprocess.run(
+        [
+            sys.executable, str(manage_script),
+            "--path", str(project_root),
+            "--action", "register",
+            "--hook-source", str(hook_source),
+        ],
+        check=True,
+    )
 
 
 def load_workflow(project_root: Path) -> dict:
@@ -293,7 +358,7 @@ def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
 
 ### 8. 完成检查
 检查是否还有可执行任务（⬜ 且依赖已满足，或 🔄 进行中）：
-- **有** → 本次迭代结束（ralph-loop 会自动触发下一次迭代）
+- **有** → 本次迭代结束（Stop hook 会自动触发下一次迭代）
 - **无，且所有任务已完成** → 输出完成摘要，然后输出 <promise>ALL COMPLETE</promise>
 - **无，但存在阻塞任务** → 输出阻塞报告（列出每个阻塞任务及原因），然后输出 <promise>ALL COMPLETE</promise>
 
@@ -307,11 +372,11 @@ def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
 
 
 def create_state_file(project_root: Path, max_iterations: int, prompt: str) -> Path:
-    """创建 .claude/ralph-loop.local.md 状态文件"""
+    """创建 .claude/structured-workflow-loop.local.md 状态文件"""
     claude_dir = project_root / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
 
-    state_path = claude_dir / "ralph-loop.local.md"
+    state_path = claude_dir / "structured-workflow-loop.local.md"
 
     session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -410,20 +475,25 @@ def main() -> None:
     else:
         max_iter = max(math.ceil(remaining * 1.5), 3)
 
-    # 6. 检测 Ralph Loop
-    ralph_detected = detect_ralph_loop()
+    # 6. 检测并清理残留状态
+    check_and_clean_residual(project_root)
 
-    # 7. 检查是否已有活跃的 ralph-loop
-    existing_state = project_root / ".claude" / "ralph-loop.local.md"
-    if existing_state.exists():
-        print("⚠ 检测到已有活跃的 ralph-loop 状态文件，将覆盖")
-
-    # 8. 生成 prompt 并创建状态文件
+    # 7. 生成 prompt 并创建状态文件
     scope_constraint = build_scope_constraint(
         task_nums, current_phases, prefix, args.count_all
     )
     prompt = build_prompt(workflow, scope_constraint)
     state_path = create_state_file(project_root, max_iter, prompt)
+
+    # 8. 注册项目级 Stop hook
+    try:
+        register_hook(project_root)
+    except subprocess.CalledProcessError:
+        # 回滚状态文件，避免孤立
+        state_path.unlink(missing_ok=True)
+        print("错误: Stop hook 注册失败，已回滚状态文件", file=sys.stderr)
+        print("请检查 .claude/ 目录权限后重试", file=sys.stderr)
+        sys.exit(1)
 
     # 9. 输出摘要
     if task_nums:
@@ -451,13 +521,8 @@ def main() -> None:
     print(f"  状态文件: {state_path}")
     print()
 
-    if ralph_detected:
-        print("  ✓ Ralph Loop 插件: 已检测到")
-        print("    自动循环将在每个任务完成后触发")
-    else:
-        print("  ⚠ Ralph Loop 插件: 未检测到")
-        print("    将执行第一个任务，但不会自动循环")
-        print("    安装方式: /install-plugin chy5301/cc-plugins 或手动安装 ralph-loop 插件")
+    print("  ✓ Stop hook: 已注册（项目级）")
+    print("    自动循环将在每个任务完成后触发")
 
 
 if __name__ == "__main__":

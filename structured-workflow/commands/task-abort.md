@@ -92,6 +92,8 @@ allowed-tools: Bash, Read, Write, Grep
 
 ### 步骤 4：处理状态文件
 
+> `abort_workflow.py` 会自动清理自动执行环境（Stop hook 注册、hook 脚本、状态文件 `.claude/structured-workflow-loop.local.md`），无需手动处理。
+
 询问用户选择处理方式：
 
 - **归档**（推荐）：保留记录，方便将来追溯

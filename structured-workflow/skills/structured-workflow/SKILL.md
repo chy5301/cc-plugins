@@ -75,7 +75,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 ### Phase 1: 执行 (`/structured-workflow:task-exec` 循环)
 - 逐任务执行，每次一个
 - 需要调整计划时 `/structured-workflow:task-adjust [变更描述]`
-- 批量自动执行时 `/structured-workflow:task-auto`（需 ralph-loop 插件）
+- 批量自动执行时 `/structured-workflow:task-auto`
 
 ### Phase 2: 回顾 (`/structured-workflow:task-review`)
 - 每个阶段完成后执行
@@ -102,7 +102,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 | `/structured-workflow:task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时（一步到位） |
 | `/structured-workflow:task-adjust [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
 | `/structured-workflow:task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
-| `/structured-workflow:task-auto [--max N] [--all]` | 自动批量执行 | 连续自动执行多个任务时（需 ralph-loop 插件） |
+| `/structured-workflow:task-auto [--max N] [--all]` | 自动批量执行 | 连续自动执行多个任务时 |
 | `/structured-workflow:task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
 | `/structured-workflow:task-abort [--reset] [原因]` | 终止 + 清理 | 需要放弃整个工作流时 |
 | `/structured-workflow:task-archive` | 归档清理 | 所有阶段完成后 |
