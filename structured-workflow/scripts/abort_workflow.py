@@ -17,7 +17,6 @@ import argparse
 import json
 import re
 import shutil
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -133,9 +132,6 @@ def archive_mode(project_root: Path, config: dict, label: str) -> None:
     print(f"  跳过文件: {skipped_count} 个")
     print(f"  workflow.json: 已归档并移除")
 
-    # 清理自动执行环境
-    cleanup_autoexec(project_root)
-
 
 def delete_mode(project_root: Path, config: dict) -> None:
     """删除模式：直接删除所有状态文件"""
@@ -174,25 +170,6 @@ def delete_mode(project_root: Path, config: dict) -> None:
     print(f"  删除文件: {deleted_count} 个")
     print(f"  跳过文件: {skipped_count} 个")
     print(f"  workflow.json: 已删除")
-
-    # 清理自动执行环境
-    cleanup_autoexec(project_root)
-
-
-def cleanup_autoexec(project_root: Path) -> None:
-    """清理自动执行环境：注销 hook + 删除状态文件"""
-    state_file = project_root / ".claude" / "structured-workflow-loop.local.md"
-    hook_script = project_root / ".claude" / "hooks" / "structured-workflow-stop.sh"
-    if not state_file.exists() and not hook_script.exists():
-        return
-
-    print()
-    print("清理自动执行环境...")
-    manage_script = Path(__file__).resolve().parent / "manage_hooks.py"
-    subprocess.run(
-        [sys.executable, str(manage_script), "--path", str(project_root), "--action", "deregister"],
-        check=False,
-    )
 
 
 def main() -> None:
