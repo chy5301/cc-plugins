@@ -1,5 +1,6 @@
 ---
-description: 增量计划变更
+description: "增量计划变更 — 当用户在工作流执行期间需要调整、修改、新增或删除任务，
+  变更优先级或依赖关系，或提到计划有变、需求变更时使用。需已完成 task-init 初始化。"
 argument-hint: "<变更描述>"
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
