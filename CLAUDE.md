@@ -1,10 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## 项目概述
 
-cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` 体系发布到 marketplace。当前包含一个插件：**structured-workflow**（大型工程任务的结构化管理工作流）。
+cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` 体系发布到 marketplace。当前包含两个插件：**structured-workflow**（大型工程任务的结构化管理工作流）和 **gitee-toolkit**（Gitee 一站式工具箱）。
 
 仓库本身不包含可构建或可测试的应用代码——所有内容都是 Markdown 命令定义、Python 辅助脚本和 JSON 配置。
 
@@ -18,6 +16,10 @@ structured-workflow/               # structured-workflow 插件根目录
   skills/structured-workflow/      # SKILL.md — 核心方法论文档，Claude Code 自动加载
   scripts/                         # Python 辅助脚本（init_project.py, abort_workflow.py 等）
   references/                      # 参考文档（任务格式、异常处理、分析/规划 prompts 等）
+gitee-toolkit/                     # gitee-toolkit 插件根目录
+  .claude-plugin/plugin.json       # 插件元数据
+  .mcp.json                        # MCP Server 配置（远程 HTTP 连接 Gitee API）
+  skills/                          # 14 个 Gitee DevOps Skills（基于 oschina/gitee-agent-skills v1.0.0）
 ```
 
 ## 插件架构关键概念
@@ -32,8 +34,9 @@ structured-workflow/               # structured-workflow 插件根目录
 
 - 命令文件使用中文编写，面向 Claude Code 作为执行者
 - Python 脚本使用 `uv run` 执行，不依赖预装环境
-- 版本号维护在 `structured-workflow/.claude-plugin/plugin.json` 的 `version` 字段
+- 版本号维护在各插件的 `.claude-plugin/plugin.json` 的 `version` 字段
 - `structured-workflow` 的自动执行功能（`/task-auto`）依赖外部插件 `ralph-loop`
+- `gitee-toolkit` 的 Skills 基于 [oschina/gitee-agent-skills](https://github.com/oschina/gitee-agent-skills) v1.0.0 独立维护，不自动同步上游
 
 ### 版本号更新
 
@@ -54,3 +57,6 @@ structured-workflow/               # structured-workflow 插件根目录
 - 命令间通过 `docs/workflow/` 下的状态文件（workflow.json、TASK_STATUS.md、TASK_PLAN.md、TASK_ANALYSIS.md）进行信息传递
 - `references/` 下的文档被多个命令引用，修改时需检查所有引用方
 - marketplace.json 和 plugin.json 需要保持同步（插件名称、描述等）
+- 修改 `gitee-toolkit/.mcp.json` 中的远程 MCP Server 地址时需同步测试连通性
+- gitee-toolkit 的 Skills 基于 oschina/gitee-agent-skills v1.0.0 独立维护，修改时注意与上游的差异
+- marketplace.json 中 gitee-toolkit 的描述需与 `gitee-toolkit/.claude-plugin/plugin.json` 保持同步

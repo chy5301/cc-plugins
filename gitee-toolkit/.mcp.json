@@ -1,0 +1,9 @@
+{
+  "gitee": {
+    "type": "http",
+    "url": "https://api.gitee.com/mcp",
+    "headers": {
+      "Authorization": "Bearer ${GITEE_ACCESS_TOKEN}"
+    }
+  }
+}
