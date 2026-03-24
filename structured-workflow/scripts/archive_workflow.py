@@ -109,6 +109,14 @@ def main() -> None:
             print(f"  - 跳过（不存在）: {rel_path}")
             skipped_count += 1
 
+    # 移动 SUMMARY.md（如果存在）
+    summary_path = project_root / "docs" / "workflow" / "SUMMARY.md"
+    if summary_path.exists():
+        dst = archive_dir / "SUMMARY.md"
+        shutil.move(str(summary_path), str(dst))
+        print(f"  ✓ 移动: {summary_path.relative_to(project_root)} → {dst.relative_to(project_root)}")
+        moved_count += 1
+
     # 将 workflow.json 也复制一份到归档目录（作为记录），然后删除原件
     workflow_dst = archive_dir / "workflow.json"
     shutil.copy2(str(workflow_path), str(workflow_dst))

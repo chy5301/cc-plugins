@@ -68,7 +68,7 @@ allowed-tools: Bash, Read, Write, Grep
 - 教训 2: ...
 ```
 
-将摘要写入 `docs/workflow/archive/{date}-{type}-{taskName}/SUMMARY.md`。
+将摘要写入 `docs/workflow/SUMMARY.md`（临时位置，步骤 3 的归档脚本会自动将其移入归档目录）。
 
 如果 `$ARGUMENTS` 包含 `--summary`，到此步停止，不执行后续归档操作。
 

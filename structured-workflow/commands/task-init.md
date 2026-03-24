@@ -18,9 +18,15 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 执行流程
 
-### 步骤 1：运行初始化脚本
+### 步骤 1：前置检查 + 运行初始化脚本
 
-1. 运行初始化脚本：`uv run "${CLAUDE_PLUGIN_ROOT}/scripts/init_project.py" --path <PROJECT_ROOT> [--type <type>] --force`
+1. 检查 `docs/workflow/workflow.json` 是否已存在：
+   - **已存在** → 告知用户当前已有工作流配置，询问：
+     - **覆盖**：将删除现有配置并重新初始化
+     - **取消**：终止本次初始化
+   - 用户确认覆盖后继续，否则终止
+   - **不存在** → 直接继续
+2. 运行初始化脚本：`uv run "${CLAUDE_PLUGIN_ROOT}/scripts/init_project.py" --path <PROJECT_ROOT> [--type <type>] --force`
 3. 如果用户在 `$ARGUMENTS` 中提供了类型，加上 `--type` 参数
 
 ### 步骤 2：任务类型识别
@@ -151,7 +157,6 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 注意事项
 
-- 如果 `workflow.json` 已存在，询问用户是否要覆盖或在现有基础上修改
 - 分析和规划阶段不修改任何项目代码，仅读取和生成文档
 - 分析报告应尽量详尽，因为它是后续规划的基础
 - 步骤 2 和步骤 6 是用户确认点，必须等待用户确认后才继续

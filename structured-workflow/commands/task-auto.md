@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 前置条件
 
-- 本命令依赖 **ralph-loop 插件** 实现自动循环。如果未安装，仍可执行第一个任务，但不会自动循环到后续任务。
+- 本命令依赖 **ralph-loop 插件** 和 **jq** 实现自动循环。两者缺一不可。
 
 ## 输入
 
@@ -27,12 +27,17 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 1：前置检查
 
-1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/structured-workflow:task-init`）
-2. 确认 `docs/workflow/TASK_STATUS.md` 存在且有待执行任务
-3. 检查 ralph-loop 插件的运行环境：
-   - 运行 `jq --version` 检查 `jq` 是否可用
-   - 如果 `jq` 不可用且 ralph-loop 已安装：**警告**用户 ralph-loop 的 stop hook 依赖 `jq`，自动循环将无法工作，建议先安装 `jq`（如 `winget install jqlang.jq`）
-   - 如果 `jq` 不可用且 ralph-loop 未安装：无需警告（本身就不会自动循环）
+1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/structured-workflow:task-init`，**终止**）
+2. 确认 `docs/workflow/TASK_STATUS.md` 存在且有待执行任务（否则**终止**）
+3. 检查 ralph-loop 插件是否已安装：
+   - 如果**未安装**：告知用户 ralph-loop 未安装，自动循环无法工作。给出安装方式（`/install-plugin chy5301/cc-plugins` 或手动安装），建议使用 `/structured-workflow:task-exec` 手动逐个执行。**终止执行**。
+4. 检查 `jq` 是否可用（运行 `jq --version`）：
+   - 如果**不可用**：告知用户 `jq` 是 ralph-loop stop hook 的必要依赖，自动循环无法工作。建议安装 `jq`（如 `winget install jqlang.jq`、`brew install jq` 等）。**终止执行**。
+5. 检查 `.claude/ralph-loop.local.md` 是否已存在且 frontmatter 中 `active: true`：
+   - 如果**存在活跃循环**：告知用户当前有正在进行的自动执行循环，询问：
+     - **覆盖**：继续设置，将覆盖现有状态
+     - **取消**：终止本次操作（建议先用 `/cancel-ralph` 取消现有循环）
+   - 用户确认覆盖后继续，否则**终止**
 
 ### 步骤 2：运行设置脚本
 
@@ -45,9 +50,6 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 如果用户**未**指定 `--yes`：
 - 展示设置脚本的输出摘要
-- 如果 Ralph Loop 未检测到，额外说明：
-  - 将执行第一个任务，但不会自动循环
-  - 建议安装 ralph-loop 插件以启用自动循环
 - 等待用户确认后继续
 
 如果用户指定了 `--yes`，跳过确认直接继续。

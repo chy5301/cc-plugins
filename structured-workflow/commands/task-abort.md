@@ -137,6 +137,21 @@ allowed-tools: Bash, Read, Write, Grep
 
 #### 删除模式
 
+**二次确认**：向用户展示将被删除的文件列表（TASK_ANALYSIS.md、TASK_PLAN.md、TASK_STATUS.md、DEPENDENCY_MAP.md、workflow.json 等），明确警告：
+
+```
+⚠ 删除确认
+
+以下文件将被永久删除，无法恢复：
+[文件列表]
+
+建议：如果希望保留记录以便日后追溯，请选择"归档"模式。
+
+确认要永久删除吗？
+```
+
+用户明确确认后才执行。用户拒绝则回到归档/删除选择。
+
 运行清理脚本：`uv run "${CLAUDE_PLUGIN_ROOT}/scripts/abort_workflow.py" --path <PROJECT_ROOT> --mode delete`
 
 ### 步骤 5：验证清理
