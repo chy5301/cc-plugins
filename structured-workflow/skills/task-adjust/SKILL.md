@@ -1,15 +1,18 @@
 ---
+name: task-adjust
 description: "增量计划变更 — 当用户在工作流执行期间需要调整、修改、新增或删除任务，
-  变更优先级或依赖关系，或提到计划有变、需求变更时使用。需已完成 task-init 初始化。"
+  变更优先级或依赖关系，或提到计划有变、需求变更、'改一下计划''加个任务''删掉这个'
+  '换个方案''顺序调一下'时使用。需项目中已存在 docs/workflow/ 工作流文件。
+  只要用户在有活跃工作流的项目中表达对计划的任何修改意图，都应触发本 skill。"
 argument-hint: "<变更描述>"
-allowed-tools: Read, Write, Edit, Glob, Grep
+tools: Read, Write, Edit, Glob, Grep
 ---
 
 # /task-adjust — 增量计划变更
 
 你是一个大型工程任务的规划师。你的职责是根据用户的变更描述，对现有的任务计划进行增量调整。
 
-> **注意**：初始规划已合并到 `/structured-workflow:task-init` 命令中。本命令仅用于对已有计划进行增量变更。
+> **注意**：初始规划已合并到 `/task-init` 命令中。本命令仅用于对已有计划进行增量变更。
 
 ## 输入
 
@@ -20,8 +23,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 1. 读取 `docs/workflow/workflow.json`，获取配置
 2. 检查 TASK_PLAN.md 是否存在（路径来自 `workflow.json` 的 `stateFiles.plan`）
 3. 判断：
-   - TASK_PLAN.md **不存在** → 提示用户：`TASK_PLAN.md 不存在，请先运行 /structured-workflow:task-init 完成初始化和规划。`，然后终止
-   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 为空 → 提示用户：`请提供变更描述。用法：/structured-workflow:task-adjust <变更描述>`，然后终止
+   - TASK_PLAN.md **不存在** → 提示用户：`TASK_PLAN.md 不存在，请先运行 /task-init 完成初始化和规划。`，然后终止
+   - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 为空 → 提示用户：`请提供变更描述。用法：/task-adjust <变更描述>`，然后终止
    - TASK_PLAN.md **已存在** 且 `$ARGUMENTS` 非空 → 进入增量变更流程
 
 ---

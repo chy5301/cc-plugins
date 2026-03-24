@@ -132,22 +132,21 @@ structured-workflow/
 ├── .claude-plugin/
 │   └── plugin.json              # Plugin 元数据
 ├── README.md                    # 本文件
-├── commands/                    # 斜杠命令
-│   ├── task-init.md
-│   ├── task-adjust.md
-│   ├── task-exec.md
-│   ├── task-auto.md
-│   ├── task-review.md
-│   ├── task-abort.md
-│   └── task-archive.md
-├── skills/
-│   └── structured-workflow/
-│       └── SKILL.md             # 核心方法论
+├── skills/                      # Skills（支持 Claude 自动触发）
+│   ├── task-init/SKILL.md       # 初始化 + 分析 + 规划
+│   ├── task-exec/SKILL.md       # 执行单个任务
+│   ├── task-adjust/SKILL.md     # 增量计划变更
+│   ├── task-review/SKILL.md     # 阶段回顾
+│   ├── task-auto/SKILL.md       # 自动批量执行
+│   ├── task-abort/SKILL.md      # 终止工作流（仅手动调用）
+│   └── task-archive/SKILL.md    # 归档清理（仅手动调用）
 ├── scripts/
 │   ├── init_project.py          # 项目初始化
+│   ├── setup_autoexec.py        # 自动执行设置
 │   ├── abort_workflow.py        # 工作流终止清理
 │   └── archive_workflow.py      # 工作流归档
 └── references/
+    ├── methodology.md           # 核心方法论（七项原则、生命周期、配置说明）
     ├── task-format.md           # 任务格式规范
     ├── exception-handling.md    # 异常处理程序
     ├── handover-template.md     # 交接记录模板

@@ -1,7 +1,10 @@
 ---
-description: 自动批量执行任务 — 连续自动执行多个任务，无需逐个手动触发（需 ralph-loop 插件和 jq）
+name: task-auto
+description: "自动批量执行任务 — 连续自动执行多个任务，无需逐个手动触发。
+  当用户提到自动执行、批量执行、连续跑完，或说'自动跑''一口气做完''全部执行''不用一个个来了'，
+  且项目中已存在 docs/workflow/ 工作流文件时使用。需 ralph-loop 插件和 jq。"
 argument-hint: "[--phase RANGE] [--task RANGE] [--max N] [--all] [--yes]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
 # /task-auto — 自动批量执行
@@ -27,10 +30,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 1：前置检查
 
-1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/structured-workflow:task-init`，**终止**）
+1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/task-init`，**终止**）
 2. 确认 `docs/workflow/TASK_STATUS.md` 存在且有待执行任务（否则**终止**）
 3. 检查 ralph-loop 插件是否已安装：
-   - 如果**未安装**：告知用户 ralph-loop 未安装，自动循环无法工作。给出安装方式（`/install-plugin chy5301/cc-plugins` 或手动安装），建议使用 `/structured-workflow:task-exec` 手动逐个执行。**终止执行**。
+   - 如果**未安装**：告知用户 ralph-loop 未安装，自动循环无法工作。给出安装方式（`/install-plugin chy5301/cc-plugins` 或手动安装），建议使用 `/task-exec` 手动逐个执行。**终止执行**。
 4. 检查 `jq` 是否可用（运行 `jq --version`）：
    - 如果**不可用**：告知用户 `jq` 是 ralph-loop stop hook 的必要依赖，自动循环无法工作。建议安装 `jq`（如 `winget install jqlang.jq`、`brew install jq` 等）。**终止执行**。
 5. 检查 `.claude/ralph-loop.local.md` 是否已存在且 frontmatter 中 `active: true`：

@@ -1,7 +1,11 @@
 ---
-description: 执行单个任务 — 按六步协议实现、验证并记录一个指定任务
+name: task-exec
+description: "执行单个任务 — 按六步协议实现、验证并记录一个指定任务。当用户提到执行任务、
+  开始下一个、继续、接着做、做下一个、继续工作流，或直接给出任务编号（如'R-03''T-05'），
+  且项目中已存在 docs/workflow/ 工作流文件时使用。
+  只要用户在有活跃工作流的项目中表达'继续''下一个'的意图，都应触发本 skill。"
 argument-hint: "<任务编号>"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
 # /task-exec — 任务执行

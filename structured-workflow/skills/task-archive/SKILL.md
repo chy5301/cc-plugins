@@ -1,7 +1,9 @@
 ---
+name: task-archive
 description: 工作流完成归档 — 任务全部完成后，生成摘要、归档状态文件、清理环境
 argument-hint: "[--summary | --label <标签>]"
-allowed-tools: Bash, Read, Write, Grep
+tools: Bash, Read, Write, Grep
+disable-model-invocation: true
 ---
 
 # /task-archive — 工作流归档
@@ -98,7 +100,7 @@ allowed-tools: Bash, Read, Write, Grep
 - 归档目录位置
 - 归档的文件列表
 - 项目已恢复"干净"状态
-- 可以使用 `/structured-workflow:task-init` 开始新一轮大型任务
+- 可以使用 `/task-init` 开始新一轮大型任务
 
 ---
 

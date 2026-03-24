@@ -1,7 +1,11 @@
 ---
-description: 初始化工作流 + 项目分析 + 任务规划
+name: task-init
+description: "初始化工作流 + 项目分析 + 任务规划。当用户提到大型重构、跨会话任务、技术迁移、
+  大规模修改、多阶段工程任务、任务拆分，或说'这个项目太大了''帮我拆一下''怎么规划这个任务'
+  '需要分几步做'等场景，且项目中尚未存在 docs/workflow/workflow.json 时使用。
+  即使用户没有明确提到'工作流'，只要任务规模明显超出单次会话可完成的范围，都应建议使用本 skill。"
 argument-hint: "[type]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
 # /task-init — 工作流初始化 + 分析 + 规划
@@ -145,7 +149,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 - 关键依赖关系
 - 建议的起始任务
 
-明确告知：**请审阅任务计划，确认后使用 `/structured-workflow:task-exec [任务编号]` 开始执行**。
+明确告知：**请审阅任务计划，确认后使用 `/task-exec [任务编号]` 开始执行**。
 
 ## 生成的文件
 
