@@ -1,12 +1,12 @@
 ---
-name: task-abort
+name: workflow-abort
 description: 终止或放弃工作流 — 中止当前工作流，清理状态文件，可选回滚代码
 argument-hint: "[--reset] [终止原因]"
 tools: Bash, Read, Write, Grep
 disable-model-invocation: true
 ---
 
-# /task-abort — 工作流终止
+# /workflow-abort — 工作流终止
 
 你是一个工作流终止管理员。你的职责是安全地终止当前工作流、清理环境，并生成终止报告。**默认不触碰代码**，仅清理状态文件。
 
@@ -69,7 +69,7 @@ disable-model-invocation: true
 
 1. **检查未提交更改**：运行 `git status --porcelain`
    - 如果有未提交更改，向用户提供选项：
-     - **stash**：执行 `git stash push -m "task-abort: stash before reset"`
+     - **stash**：执行 `git stash push -m "workflow-abort: stash before reset"`
      - **丢弃**：继续执行（reset 会一并清除）
      - **取消回滚**：跳过代码回滚，继续步骤 4
 
@@ -174,7 +174,7 @@ disable-model-invocation: true
   - 已回滚：回滚到 `<initCommit>`
   - 未回滚：附上参考 git 命令（如果 initCommit 有效）
 - 如果执行了 stash：提示 `git stash pop` 恢复暂存更改
-- 提示可使用 `/task-init` 开始新工作流
+- 提示可使用 `/workflow-init` 开始新工作流
 
 ---
 

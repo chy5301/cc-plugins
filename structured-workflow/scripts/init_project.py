@@ -323,7 +323,7 @@ def main() -> None:
         print(f"  initCommit: {config['initCommit'][:8]}")
     if not args.type:
         print()
-        print("提示: 未指定类型，请使用 /task-init 让 Claude 自动分诊")
+        print("提示: 未指定类型，请使用 /workflow-init 让 Claude 自动分诊")
 
 
 if __name__ == "__main__":

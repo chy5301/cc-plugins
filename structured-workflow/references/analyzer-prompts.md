@@ -1,6 +1,6 @@
 # 分类型分析 Prompt
 
-本文档包含 8 种任务类型的分析 prompt。`/task-init` 根据 `primaryType` 加载对应章节，`secondaryTags` 对应的补充检查项附加到主分析中。
+本文档包含 8 种任务类型的分析 prompt。`/workflow-init` 根据 `primaryType` 加载对应章节，`secondaryTags` 对应的补充检查项附加到主分析中。
 
 ---
 

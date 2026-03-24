@@ -30,7 +30,7 @@ tools: Bash, Read, Write, Edit, Glob, Grep
 
 ### 步骤 1：前置检查
 
-1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/task-init`，**终止**）
+1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/workflow-init`，**终止**）
 2. 确认 `docs/workflow/TASK_STATUS.md` 存在且有待执行任务（否则**终止**）
 3. 检查 ralph-loop 插件是否已安装：
    - 如果**未安装**：告知用户 ralph-loop 未安装，自动循环无法工作。给出安装方式（`/install-plugin chy5301/cc-plugins` 或手动安装），建议使用 `/task-exec` 手动逐个执行。**终止执行**。

@@ -70,7 +70,7 @@ def load_workflow(project_root: Path) -> dict:
                 return json.load(f)
 
     print("错误: 未找到 workflow.json（工作流未初始化）", file=sys.stderr)
-    print("请先运行 /task-init 初始化工作流", file=sys.stderr)
+    print("请先运行 /workflow-init 初始化工作流", file=sys.stderr)
     sys.exit(1)
 
 

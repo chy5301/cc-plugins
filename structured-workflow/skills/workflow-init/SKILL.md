@@ -1,5 +1,5 @@
 ---
-name: task-init
+name: workflow-init
 description: "初始化工作流 + 项目分析 + 任务规划。当用户提到大型重构、跨会话任务、技术迁移、
   大规模修改、多阶段工程任务、任务拆分，或说'这个项目太大了''帮我拆一下''怎么规划这个任务'
   '需要分几步做'等场景，且项目中尚未存在 docs/workflow/workflow.json 时使用。
@@ -8,7 +8,7 @@ argument-hint: "[type]"
 tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
-# /task-init — 工作流初始化 + 分析 + 规划
+# /workflow-init — 工作流初始化 + 分析 + 规划
 
 > **⚠️ 首要提醒**：本命令完成时，必须确认 `docs/workflow/workflow.json`、`TASK_ANALYSIS.md`、`TASK_PLAN.md` 和 `TASK_STATUS.md` 均已正确生成在 `docs/workflow/` 目录下。
 

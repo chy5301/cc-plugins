@@ -1,12 +1,12 @@
 ---
-name: task-archive
+name: workflow-archive
 description: 工作流完成归档 — 任务全部完成后，生成摘要、归档状态文件、清理环境
 argument-hint: "[--summary | --label <标签>]"
 tools: Bash, Read, Write, Grep
 disable-model-invocation: true
 ---
 
-# /task-archive — 工作流归档
+# /workflow-archive — 工作流归档
 
 你是一个工作流归档管理员。你的职责是在大型任务完成后，生成完成摘要，归档状态文件，清理环境，使项目恢复到"干净"状态。
 
@@ -100,7 +100,7 @@ disable-model-invocation: true
 - 归档目录位置
 - 归档的文件列表
 - 项目已恢复"干净"状态
-- 可以使用 `/task-init` 开始新一轮大型任务
+- 可以使用 `/workflow-init` 开始新一轮大型任务
 
 ---
 

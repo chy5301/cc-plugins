@@ -200,7 +200,7 @@ def main() -> None:
         delete_mode(project_root, config)
 
     print()
-    print("项目已恢复干净状态，可使用 /task-init 开始新工作流。")
+    print("项目已恢复干净状态，可使用 /workflow-init 开始新工作流。")
 
 
 if __name__ == "__main__":

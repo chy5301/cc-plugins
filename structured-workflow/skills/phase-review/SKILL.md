@@ -1,5 +1,5 @@
 ---
-name: task-review
+name: phase-review
 description: "阶段完成检查 — 阶段回顾、变更审计和退出标准验证，确认是否可进入下一阶段。
   当用户提到阶段完成、检查进度、回顾、退出标准验证，或说'这个阶段做完了吧''检查一下'
   '可以进下一阶段了吗''看看完成情况'，且项目中已存在 docs/workflow/ 工作流文件时使用。
@@ -8,7 +8,7 @@ argument-hint: "[Phase N]"
 tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
-# /task-review — 阶段回顾
+# /phase-review — 阶段回顾
 
 你是一个阶段回顾审查员。你的职责是对已完成的阶段进行变更审计、系统性质量检查、退出标准验证，并评估下游影响。
 
@@ -169,5 +169,5 @@ tools: Bash, Read, Write, Edit, Glob, Grep
 ## 关键约束
 
 - 回顾阶段**仅在审计发现 🔴/🟡 问题时**执行修正性变更，修正范围严格限于审计发现
-- 所有调整建议需要用户确认后才通过 `/task-adjust` 执行
+- 所有调整建议需要用户确认后才通过 `/plan-adjust` 执行
 - "必须"级别的调整可以直接应用到 TASK_PLAN.md，但要通知用户

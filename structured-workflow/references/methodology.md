@@ -22,7 +22,7 @@
 4 种标准异常处理程序：任务过大→拆分、计划有误→停止等待确认、前置未完成→告知依赖、范围蔓延→完成范围内工作并记录范围外需求。
 
 ### 6. 阶段退出标准
-每个阶段（Phase）有明确的退出标准。阶段内所有任务完成后，必须通过 `/task-review` 验证退出标准才能进入下一阶段。
+每个阶段（Phase）有明确的退出标准。阶段内所有任务完成后，必须通过 `/phase-review` 验证退出标准才能进入下一阶段。
 
 ### 7. 中央状态跟踪
 所有进度、决策、问题、变更都记录在中央状态文件（TASK_STATUS.md）中。状态文件是唯一的事实来源，用于跨会话信息传递。
@@ -39,19 +39,19 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 
 | 阶段 | skill | 说明 |
 |------|-------|------|
-| Phase 0 | `/task-init` | 初始化 + 分析 + 规划 |
+| Phase 0 | `/workflow-init` | 初始化 + 分析 + 规划 |
 | Phase 1+ | `/task-exec` | 逐任务执行（主力命令） |
-| 计划变更 | `/task-adjust` | 增量调整计划 |
+| 计划变更 | `/plan-adjust` | 增量调整计划 |
 | 批量执行 | `/task-auto` | 自动连续执行（需 ralph-loop） |
-| 阶段回顾 | `/task-review` | 退出标准验证 |
-| 异常终止 | `/task-abort` | 中止并清理 |
-| 完成归档 | `/task-archive` | 生成摘要并归档 |
+| 阶段回顾 | `/phase-review` | 退出标准验证 |
+| 异常终止 | `/workflow-abort` | 中止并清理 |
+| 完成归档 | `/workflow-archive` | 生成摘要并归档 |
 
 ---
 
 ## workflow.json 配置说明
 
-`workflow.json` 位于项目的 `docs/workflow/` 目录下，由 `/task-init` 自动生成。
+`workflow.json` 位于项目的 `docs/workflow/` 目录下，由 `/workflow-init` 自动生成。
 
 ```json
 {
@@ -105,10 +105,10 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 
 | 文件 | 用途 | 生成时机 |
 |------|------|----------|
-| `TASK_ANALYSIS.md` | 分析报告 | `/task-init` |
-| `TASK_PLAN.md` | 任务清单 | `/task-init`，`/task-adjust` 增量更新 |
-| `TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/task-init`，每次 `/task-exec` 更新 |
-| `DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/task-init` |
+| `TASK_ANALYSIS.md` | 分析报告 | `/workflow-init` |
+| `TASK_PLAN.md` | 任务清单 | `/workflow-init`，`/plan-adjust` 增量更新 |
+| `TASK_STATUS.md` | 进度跟踪 + 交接记录 | `/workflow-init`，每次 `/task-exec` 更新 |
+| `DEPENDENCY_MAP.md` | 依赖关系图（可选） | `/workflow-init` |
 
 ---
 
