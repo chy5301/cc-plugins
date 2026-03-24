@@ -1,12 +1,7 @@
 ---
 name: search-repos
-description: Search for open source repositories on Gitee with advanced filtering by language, popularity, and activity. Use when the user wants to find repositories, explore open source projects, discover libraries by language, or compare multiple projects without forking. Keywords: search repos, find repositories, open source discovery, explore projects, compare libraries.
-license: MIT
-compatibility: Requires Gitee MCP Server configured with access to search_open_source_repositories tool
-metadata:
-  author: gitee-agent-skills
-  version: "1.0.0"
-  related_skills: repo-explorer, search-and-fork
+description: "Search for open source repositories on Gitee with advanced filtering by language, popularity, and activity. Use when the user wants to find repositories, explore open source projects, discover libraries by language, or compare multiple projects without forking."
+version: "1.0.0"
 ---
 
 # Search Repositories on Gitee
