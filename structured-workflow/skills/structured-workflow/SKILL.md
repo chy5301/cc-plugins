@@ -1,10 +1,10 @@
 ---
 name: structured-workflow
 description: "大型工程任务的结构化管理方法论。提供分阶段里程碑规划、
-  粒度约束任务分解、执行协议和会话交接管理。当项目中存在
-  docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md 时自动激活。
+  粒度约束任务分解、执行协议和会话交接管理。
   当用户提到大型重构、跨会话任务、技术迁移、大规模修改、
-  多阶段工程任务等场景时，建议使用本工作流系统。
+  多阶段工程任务、任务拆分等场景时，建议使用本工作流系统。
+  当项目中已存在 docs/workflow/workflow.json 或 docs/workflow/TASK_STATUS.md 时也应自动激活。
   配合 /structured-workflow:task-init, /structured-workflow:task-adjust,
   /structured-workflow:task-exec, /structured-workflow:task-auto,
   /structured-workflow:task-review, /structured-workflow:task-abort,
@@ -75,7 +75,7 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 ### Phase 1: 执行 (`/structured-workflow:task-exec` 循环)
 - 逐任务执行，每次一个
 - 需要调整计划时 `/structured-workflow:task-adjust [变更描述]`
-- 批量自动执行时 `/structured-workflow:task-auto`（需 ralph-loop 插件）
+- 批量自动执行时 `/structured-workflow:task-auto`（需 ralph-loop 插件和 jq）
 
 ### Phase 2: 回顾 (`/structured-workflow:task-review`)
 - 每个阶段完成后执行
@@ -101,11 +101,11 @@ Init (分析+规划) → Execute (循环) → Review (阶段性) → Archive
 |------|------|----------|
 | `/structured-workflow:task-init [type]` | 初始化 + 分析 + 规划 | 大型任务开始时（一步到位） |
 | `/structured-workflow:task-adjust [变更描述]` | 增量计划变更 | 执行过程中需调整计划时 |
-| `/structured-workflow:task-exec [T-XX]` | 执行单个任务 | 日常执行（主力命令） |
-| `/structured-workflow:task-auto [--max N] [--all]` | 自动批量执行 | 连续自动执行多个任务时（需 ralph-loop 插件） |
-| `/structured-workflow:task-review [Phase X]` | 阶段回顾 | 阶段任务全部完成后 |
-| `/structured-workflow:task-abort [--reset] [原因]` | 终止 + 清理 | 需要放弃整个工作流时 |
-| `/structured-workflow:task-archive` | 归档清理 | 所有阶段完成后 |
+| `/structured-workflow:task-exec [T-XX]` | 执行单个任务（六步协议） | 日常执行（主力命令） |
+| `/structured-workflow:task-auto [--max N] [--all]` | 自动批量执行任务 | 连续自动执行多个任务时（需 ralph-loop 插件和 jq） |
+| `/structured-workflow:task-review [Phase X]` | 阶段完成检查 | 阶段任务全部完成后，确认是否可进入下一阶段 |
+| `/structured-workflow:task-abort [--reset] [原因]` | 终止或放弃工作流 | 需要中止当前工作流时 |
+| `/structured-workflow:task-archive` | 工作流完成归档 | 所有阶段完成后，生成摘要并清理环境 |
 
 ---
 

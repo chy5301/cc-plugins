@@ -1,5 +1,5 @@
 ---
-description: 终止工作流 + 清理环境
+description: 终止或放弃工作流 — 中止当前工作流，清理状态文件，可选回滚代码
 argument-hint: "[--reset] [终止原因]"
 allowed-tools: Bash, Read, Write, Grep
 ---

@@ -1,5 +1,5 @@
 ---
-description: 执行单个任务（六步协议）
+description: 执行单个任务 — 按六步协议实现、验证并记录一个指定任务
 argument-hint: "<任务编号>"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---

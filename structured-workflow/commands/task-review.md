@@ -1,5 +1,5 @@
 ---
-description: 阶段回顾 + 变更审计 + 退出标准验证
+description: 阶段完成检查 — 阶段回顾、变更审计和退出标准验证，确认是否可进入下一阶段
 argument-hint: "[Phase N]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---

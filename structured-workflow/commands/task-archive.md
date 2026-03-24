@@ -1,5 +1,5 @@
 ---
-description: 工作流归档 + 环境清理
+description: 工作流完成归档 — 任务全部完成后，生成摘要、归档状态文件、清理环境
 argument-hint: "[--summary | --label <标签>]"
 allowed-tools: Bash, Read, Write, Grep
 ---

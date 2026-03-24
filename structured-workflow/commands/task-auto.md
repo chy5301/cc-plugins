@@ -1,5 +1,5 @@
 ---
-description: 自动批量执行任务（基于 ralph-loop 自动循环）
+description: 自动批量执行任务 — 连续自动执行多个任务，无需逐个手动触发（需 ralph-loop 插件和 jq）
 argument-hint: "[--phase RANGE] [--task RANGE] [--max N] [--all] [--yes]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
@@ -36,7 +36,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 5. 检查 `.claude/ralph-loop.local.md` 是否已存在且 frontmatter 中 `active: true`：
    - 如果**存在活跃循环**：告知用户当前有正在进行的自动执行循环，询问：
      - **覆盖**：继续设置，将覆盖现有状态
-     - **取消**：终止本次操作（建议先用 `/cancel-ralph` 取消现有循环）
+     - **取消**：终止本次操作（建议先用 `/ralph-loop:cancel-ralph` 取消现有循环）
    - 用户确认覆盖后继续，否则**终止**
 
 ### 步骤 2：运行设置脚本
@@ -69,4 +69,4 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 中途取消
 
-如需取消自动执行循环，使用 `/cancel-ralph` 命令。
+如需取消自动执行循环，使用 `/ralph-loop:cancel-ralph` 命令。
