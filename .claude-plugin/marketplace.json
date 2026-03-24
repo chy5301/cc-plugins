@@ -17,7 +17,7 @@
     {
       "name": "gitee-toolkit",
       "source": "./gitee-toolkit",
-      "description": "Gitee 一站式工具箱。集成 Gitee MCP Server 与 DevOps Skills，覆盖 PR、Issue、Release、仓库探索等操作。",
+      "description": "Gitee 一站式工具箱。集成 Gitee MCP Server 与 14 个 DevOps Skills，覆盖 PR、Issue、Release、仓库探索等操作。",
       "category": "integration",
       "tags": ["gitee", "devops", "mcp", "git"]
     }
