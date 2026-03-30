@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` 体系发布到 marketplace。当前包含两个插件：**structured-workflow**（大型工程任务的结构化管理工作流）和 **gitee-toolkit**（Gitee 一站式工具箱）。
+cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` 体系发布到 marketplace。当前包含三个插件：**structured-workflow**（大型工程任务的结构化管理工作流）、**gitee-toolkit**（Gitee 一站式工具箱）和 **agent-native-design-guide**（Agent-Native 软件设计指南）。
 
 仓库本身不包含可构建或可测试的应用代码——所有内容都是 Markdown 命令定义、Python 辅助脚本和 JSON 配置。
 
@@ -19,6 +19,11 @@ gitee-toolkit/                     # gitee-toolkit 插件根目录
   .claude-plugin/plugin.json       # 插件元数据
   .mcp.json                        # MCP Server 配置（远程 HTTP 连接 Gitee API）
   skills/                          # 14 个 Gitee DevOps Skills（基于 oschina/gitee-agent-skills v1.0.0）
+agent-native-design-guide/         # agent-native-design-guide 插件根目录
+  .claude-plugin/plugin.json       # 插件元数据
+  skills/                          # 1 个 Skill（Agent-Native 设计指南）
+  references/                      # 参考文档（design-principles.md, architecture-patterns.md）
+  examples/                        # 示例代码（cli-json-output.py, cli-help-design.py）
 ```
 
 ## 插件架构关键概念
