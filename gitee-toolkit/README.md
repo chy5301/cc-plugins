@@ -55,9 +55,7 @@ source ~/.bashrc
 
 ## 安装
 
-```
-/plugin install chy5301/cc-plugins gitee-toolkit
-```
+参见 [仓库 README](../README.md#安装)。
 
 ## 使用
 
