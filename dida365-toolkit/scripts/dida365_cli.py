@@ -24,12 +24,22 @@ BASE_DOMAIN = os.environ.get("DIDA365_API_DOMAIN", "api.dida365.com")
 BASE_URL = f"https://{BASE_DOMAIN}/open/v1"
 TOKEN = os.environ.get("DIDA365_API_TOKEN", "")
 
+# 语义化退出码（Agent-Native 设计规范）
+EXIT_OK = 0
+EXIT_ERROR = 1
+EXIT_USAGE = 2
+EXIT_NOT_FOUND = 3
+EXIT_PERMISSION = 4
+
+# HTTP 状态码到语义退出码的映射
+_STATUS_TO_EXIT = {401: EXIT_PERMISSION, 403: EXIT_PERMISSION, 404: EXIT_NOT_FOUND}
+
 
 def get_client() -> httpx.Client:
     if not TOKEN:
-        print("错误: 未设置环境变量 DIDA365_API_TOKEN", file=sys.stderr)
-        print("请在滴答清单 设置→账户→API Token 中获取，然后设置环境变量。", file=sys.stderr)
-        sys.exit(1)
+        _fail("CONFIG_ERROR", "未设置环境变量 DIDA365_API_TOKEN",
+              suggestion="在滴答清单网页版 头像→设置→账户与安全→API 口令 中创建，然后设置环境变量",
+              exit_code=EXIT_USAGE)
     return httpx.Client(
         base_url=BASE_URL,
         headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"},
@@ -37,18 +47,38 @@ def get_client() -> httpx.Client:
     )
 
 
+def _fail(code: str, message: str, *, suggestion: str = "", exit_code: int = EXIT_ERROR) -> None:
+    """输出统一 JSON 错误信封并退出。"""
+    envelope: dict = {
+        "success": False,
+        "error": {"code": code, "message": message},
+    }
+    if suggestion:
+        envelope["error"]["suggestion"] = suggestion
+    print(json.dumps(envelope, ensure_ascii=False, indent=2))
+    sys.exit(exit_code)
+
+
 def output(data: object) -> None:
-    print(json.dumps(data, ensure_ascii=False, indent=2))
+    """输出统一 JSON 成功信封。"""
+    envelope = {"success": True, "data": data}
+    print(json.dumps(envelope, ensure_ascii=False, indent=2))
 
 
 def handle_response(resp: httpx.Response) -> object:
     if resp.status_code >= 400:
-        print(f"错误: HTTP {resp.status_code}", file=sys.stderr)
+        exit_code = _STATUS_TO_EXIT.get(resp.status_code, EXIT_ERROR)
+        detail = ""
         try:
-            print(json.dumps(resp.json(), ensure_ascii=False, indent=2), file=sys.stderr)
+            detail = json.dumps(resp.json(), ensure_ascii=False)
         except Exception:
-            print(resp.text, file=sys.stderr)
-        sys.exit(1)
+            detail = resp.text
+        _fail(
+            code=f"HTTP_{resp.status_code}",
+            message=f"API 返回 {resp.status_code}: {detail}",
+            suggestion="检查参数是否正确；401 表示 Token 无效或过期",
+            exit_code=exit_code,
+        )
     if resp.status_code == 204 or not resp.content:
         return {"status": "ok"}
     return resp.json()
@@ -99,8 +129,9 @@ def cmd_update_project(args: argparse.Namespace) -> None:
     if args.sort_order is not None:
         body["sortOrder"] = args.sort_order
     if not body:
-        print("错误: 至少需要一个要更新的字段", file=sys.stderr)
-        sys.exit(1)
+        _fail("INVALID_PARAMETER", "至少需要一个要更新的字段",
+              suggestion="使用 --name, --color, --view-mode, --kind 或 --sort-order 指定要更新的字段",
+              exit_code=EXIT_USAGE)
     with get_client() as c:
         output(handle_response(c.post(f"/project/{args.project_id}", json=body)))
 
