@@ -1,7 +1,7 @@
 ---
 name: project-management
 description: |
-  管理滴答清单项目（清单）。当用户提到"创建项目""新建清单""查看所有项目""修改项目""删除项目""list projects""create project""project management""我有哪些清单""看看我的项目"时使用。
+  管理滴答清单项目（清单）。当用户提到"创建项目""新建清单""查看所有项目""修改项目""删除项目""重命名项目""list projects""create project""rename project""project management""我有哪些清单""看看我的项目"时使用。
 version: 0.1.0
 tools: Bash
 ---

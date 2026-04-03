@@ -1,7 +1,7 @@
 ---
 name: task-complete
 description: |
-  标记滴答清单任务为已完成。当用户提到"完成任务""标记完成""做完了""mark complete""check off task""finish task""这个任务搞定了"时使用。
+  标记滴答清单任务为已完成。当用户提到"完成任务""标记完成""做完了""打勾""勾掉""mark complete""check off task""finish task""这个任务搞定了"时使用。
 version: 0.1.0
 tools: Bash
 ---

@@ -40,24 +40,32 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data inbox
 
 ### Step 3: 筛选今日任务
 
-使用当天日期范围筛选任务（根据实际日期替换）：
+使用当天日期范围筛选任务。将日期替换为实际的当前日期（如 `2026-04-04`）：
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --start-date "今天T00:00:00+0800" \
-  --end-date "今天T23:59:59+0800" \
+  --start-date "2026-04-04T00:00:00+0800" \
+  --end-date "2026-04-04T23:59:59+0800" \
   --status 0
 ```
 
-> 将"今天"替换为实际日期，如 `2026-04-04T00:00:00+0800`。
+> **注意**：`filter-tasks` 的日期参数基于任务的 `startDate` 字段，而非 `dueDate`。
 
-### Step 4: 筛选逾期任务
+### Step 4: 查找逾期任务
 
-查找截止日期早于今天且未完成的任务：
+`filter-tasks` 无法直接按 `dueDate` 筛选，因此需要获取各项目的任务数据，在结果中查找逾期项：
+
+1. 对 Step 1 中获取的每个项目（以及 inbox），已在 Step 2 获取的数据中查找
+2. 对其他重要项目，调用 `get-project-data <项目ID>` 获取任务列表
+3. 在返回的任务 JSON 中，筛选满足以下条件的任务：
+   - `dueDate` 存在且早于今天
+   - `status` 为 0（未完成）
+
+如果项目较多，可以先用 `filter-tasks` 做一个粗略筛选（基于 startDate），再补充检查：
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --end-date "昨天T23:59:59+0800" \
+  --end-date "2026-04-03T23:59:59+0800" \
   --status 0
 ```
 
@@ -99,4 +107,5 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks --priority 3,5 
 根据任务情况向用户提供建议：
 - 如果有逾期任务，建议优先处理或调整截止日期
 - 如果今日任务较多，建议关注高优先级项
-- 如果收集箱有未分类任务，建议归类到对应项目
+- 如果收集箱有未分类任务，建议归类到对应项目（可使用 task-organize skill）
+- 如果用户需要更灵活的条件筛选，引导使用 task-query skill

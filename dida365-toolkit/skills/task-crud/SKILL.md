@@ -1,7 +1,7 @@
 ---
 name: task-crud
 description: |
-  创建、查看、更新、删除滴答清单任务（含子任务）。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""加个子任务""create task""update task""delete task""add todo""在滴答清单里加一个..."时使用。
+  创建、查看、更新、删除滴答清单任务。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""create task""update task""delete task""add todo""在滴答清单里加一个..."时使用。
 version: 0.1.0
 tools: Bash
 ---
@@ -12,7 +12,7 @@ tools: Bash
 
 ## 前置条件
 
-- 环境变量 `DIDA365_API_TOKEN` 已设置（未设置时引导用户使用 `/setup-guide`）
+- 环境变量 `DIDA365_API_TOKEN` 已设置（未设置时引导用户先完成配置，触发 setup-guide skill）
 
 ## CLI 工具路径
 
@@ -31,6 +31,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py create-task \
   --project <项目ID> \
   --title "任务标题" \
   [--content "任务内容"] \
+  [--desc "清单描述"] \
   [--priority 0|1|3|5] \
   [--due-date "2026-04-05T00:00:00+0800"] \
   [--start-date "2026-04-04T00:00:00+0800"] \
@@ -61,6 +62,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
   --project <项目ID> \
   [--title "新标题"] \
   [--content "新内容"] \
+  [--desc "清单描述"] \
   [--priority 0|1|3|5] \
   [--due-date "..."] \
   [--start-date "..."] \

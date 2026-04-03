@@ -1,7 +1,7 @@
 ---
 name: task-organize
 description: |
-  在滴答清单项目间移动和整理任务。当用户提到"移动任务""把任务从...移到...""整理任务""归类""move task""reorganize tasks""任务搬到另一个清单"时使用。
+  在滴答清单项目间移动和整理任务。当用户提到"移动任务""把任务从...移到...""整理任务""归类""转移""换个清单""move task""reorganize tasks""任务搬到另一个清单"时使用。
 version: 0.1.0
 tools: Bash
 ---
