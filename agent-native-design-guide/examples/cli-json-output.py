@@ -30,10 +30,20 @@ PROJECTS = [
 ALLOWED_FORMATS = ["pdf", "html", "json", "csv"]
 
 # === 退出码常量 ===
+# 语义化退出码，Agent 据此判断重试策略：
+#   0 = 成功
+#   1 = 一般错误（Agent 应报告给用户）
+#   2 = 参数/用法错误（Agent 应修正参数后重试）
+#   3 = 资源不存在（Agent 应跳过或创建）
+#   4 = 权限不足（Agent 应提示用户授权）
+#  10 = dry-run 预览成功（Agent 可据此决定是否正式执行）
 
 EXIT_SUCCESS = 0
 EXIT_ERROR = 1
 EXIT_USAGE_ERROR = 2
+EXIT_NOT_FOUND = 3
+EXIT_PERMISSION = 4
+EXIT_DRY_RUN = 10
 
 # === 核心：JSON 信封结构 ===
 

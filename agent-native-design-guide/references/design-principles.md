@@ -166,6 +166,7 @@
 - 成功和失败返回统一的 JSON 信封结构，Agent 只需检查 `success` 字段
 - 错误输出包含错误码（机器可读）+ 错误描述（人类可读）+ 建议操作
 - 幂等操作明确标记，Agent 可安全重试
+- 支持 `--no-interactive` 模式：禁用交互式提示、pager 和确认对话框。反面教训：AWS CLI v2（2019）将默认 pager 改为 `less`，导致全球数千个 CI 管道挂起——Agent 无法回答 `Are you sure? [y/N]`
 
 ---
 

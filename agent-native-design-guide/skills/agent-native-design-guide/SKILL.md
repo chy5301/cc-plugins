@@ -123,8 +123,9 @@ Agent 是主要用户吗？
 - [ ] 命令命名遵循 `<工具> <资源> <操作>` 模式
 - [ ] CLI 入口点进行输入验证（路径规范化、schema 校验、拒绝危险字符）
 - [ ] 错误响应包含错误码（机器可读）+ 错误描述 + 恢复建议
-- [ ] 退出码遵循约定（0=成功, 1=错误, 2=用法错误, 3=权限拒绝）
+- [ ] 退出码遵循语义化约定（0=成功, 1=一般错误, 2=用法/参数错误, 3=资源不存在, 4=权限不足, 10=dry-run 预览）
 - [ ] 破坏性操作支持 `--dry-run`
+- [ ] `--no-interactive` 模式：禁用交互式提示、pager 和确认对话框（教训：AWS CLI v2 在 2019 年将默认 pager 改为 `less`，导致全球数千个 CI 管道挂起——Agent 无法回答 `Are you sure? [y/N]`）
 - [ ] 支持 `--fields` 输出字段掩码（保护上下文窗口）
 
 可运行的代码示例：`${CLAUDE_PLUGIN_ROOT}/examples/cli-json-output.py`（JSON 信封）和 `${CLAUDE_PLUGIN_ROOT}/examples/cli-help-design.py`（Agent 友好的 `--help`）。
