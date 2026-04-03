@@ -50,3 +50,7 @@ uv run python examples/cli-help-design.py --help --json
 1. **实践提炼**：从 Reader、Anecdote 等 Agent-Native 产品中提炼的五原则（Every.to）
 2. **工程经验**：Anthropic 内部数百个 Skill 的九条写作原则
 3. **第一性原理**：从 Agent 交互特性推导的设计原则 + 语义优先架构理论
+
+## 关联项目
+
+本 Plugin 的调研源头和开发工作区：[chy5301/agent-native](https://github.com/chy5301/agent-native)。该仓库包含完整的调研笔记、案例分析、工作流记录和设计产出过程。本目录是其 `skill/agent-native-design-guide/` 的打包发布副本。
