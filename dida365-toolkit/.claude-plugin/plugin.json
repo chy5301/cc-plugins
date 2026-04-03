@@ -1,0 +1,10 @@
+{
+  "name": "dida365-toolkit",
+  "description": "滴答清单一站式工具箱。提供 7 个 Skills 覆盖任务和项目的完整生命周期管理，包括增删改查、完成、移动、高级筛选和每日回顾。",
+  "version": "0.1.0",
+  "author": {
+    "name": "chy5301"
+  },
+  "homepage": "https://github.com/chy5301/cc-plugins",
+  "repository": "https://github.com/chy5301/cc-plugins"
+}

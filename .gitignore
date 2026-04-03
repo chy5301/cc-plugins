@@ -10,3 +10,6 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Playwright MCP
+.playwright-mcp/
