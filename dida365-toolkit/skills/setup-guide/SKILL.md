@@ -17,15 +17,17 @@ tools: Bash
 
 ## 步骤
 
-### Step 1: 获取 API Token
+### Step 1: 获取 API Token（API 口令）
 
 引导用户操作：
 
-1. 打开滴答清单（网页版或桌面版）
-2. 进入 **设置 → 账户 → API Token**
-3. 复制 API Token
+1. 打开**网页版**滴答清单（https://dida365.com）
+2. 点击右上角 **头像** → **设置** → **账户与安全** → **API 口令**
+3. 点击创建新的 API 口令，复制生成的 Token（格式类似 `dp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`）
 
-> **国际版用户**（TickTick）：路径相同，在 Settings → Account → API Token。
+> **国际版用户**（TickTick）：访问 https://ticktick.com，路径为 Avatar → Settings → Account & Security → API Token。
+>
+> **说明**：该 Token 同时用于滴答清单 MCP 和 Open API，本插件通过 Open API 调用。
 
 ### Step 2: 设置环境变量
 
