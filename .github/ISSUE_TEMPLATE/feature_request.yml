@@ -10,6 +10,8 @@ body:
       options:
         - structured-workflow
         - gitee-toolkit
+        - agent-native-design-guide
+        - dida365-toolkit
         - 新插件提议
         - 通用（仓库级别）
     validations:
