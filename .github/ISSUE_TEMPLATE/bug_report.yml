@@ -1,0 +1,77 @@
+name: Bug 报告
+description: 报告插件运行异常或错误行为
+labels: ["type: bug"]
+body:
+  - type: dropdown
+    id: plugin
+    attributes:
+      label: 涉及的插件
+      description: 选择出现问题的插件
+      options:
+        - structured-workflow
+        - gitee-toolkit
+        - 通用（仓库级别）
+        - 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰简要地描述遇到的问题
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 按步骤描述如何复现此问题
+      placeholder: |
+        1. 执行 `/workflow-init` 初始化工作流
+        2. 运行 `/task-exec R-01`
+        3. 出现错误 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 描述你期望发生的行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 描述实际发生的行为
+    validations:
+      required: true
+
+  - type: input
+    id: claude-code-version
+    attributes:
+      label: Claude Code 版本
+      description: "运行 `claude --version` 获取"
+      placeholder: "例如: 1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: 操作系统
+      placeholder: "例如: Windows 11, macOS 15.2, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 额外上下文
+      description: 补充截图、错误日志或其他相关信息（可选）
+    validations:
+      required: false
