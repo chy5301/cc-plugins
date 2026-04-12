@@ -1,0 +1,53 @@
+name: Auto Label Plugin
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pluginLabels = {
+              'structured-workflow': 'plugin: structured-workflow',
+              'gitee-toolkit': 'plugin: gitee-toolkit',
+              'agent-native-design-guide': 'plugin: agent-native-design-guide',
+              'dida365-toolkit': 'plugin: dida365-toolkit',
+            };
+
+            const body = context.payload.issue.body || '';
+            // Issue Forms 的 dropdown 会生成 "### 涉及的插件\n\n<value>" 格式
+            const match = body.match(/### 涉及的插件\s*\n\s*\n\s*(.+)/);
+            if (!match) return;
+
+            const selected = match[1].trim();
+            const label = pluginLabels[selected];
+            if (!label) return; // "通用（仓库级别）"或"不确定"不打标签
+
+            const issueLabels = context.payload.issue.labels.map(l => l.name);
+            if (issueLabels.includes(label)) return; // 已有则跳过
+
+            // 移除其他 plugin: * 标签（用户编辑时切换了插件选项）
+            const otherPluginLabels = issueLabels.filter(
+              l => l.startsWith('plugin: ') && l !== label
+            );
+            for (const old of otherPluginLabels) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: old,
+              });
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            });
