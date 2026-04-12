@@ -10,7 +10,7 @@
 选项:
     --mode archive    归档状态文件到 docs/workflow/archive/（目录名含 aborted 标记）
     --mode delete     直接删除所有状态文件和 workflow.json
-    --label <标签>    自定义归档标签（默认使用 workflow.json 中的 primaryType）
+    --label <标签>    自定义归档标签（默认使用 workflow.json 中的 taskName）
 """
 
 import argparse
@@ -68,16 +68,15 @@ def get_state_files(project_root: Path, config: dict) -> dict[str, Path]:
 
 def archive_mode(project_root: Path, config: dict, label: str) -> None:
     """归档模式：移动状态文件到归档目录"""
-    primary_type = config.get("primaryType", "generic")
     task_name = config.get("taskName", "")
-    if label != primary_type:
+    if label and label != task_name:
         name_part = slugify(label)
     elif task_name:
         name_part = slugify(task_name)
     else:
-        name_part = primary_type
+        name_part = "workflow"
     date_str = datetime.now().strftime("%Y%m%d")
-    archive_name = f"{date_str}-{primary_type}-{name_part}-aborted"
+    archive_name = f"{date_str}-{name_part}-aborted"
 
     archive_dir = project_root / "docs" / "workflow" / "archive" / archive_name
     if archive_dir.exists():
@@ -192,7 +191,7 @@ def main() -> None:
     with open(workflow_path, encoding="utf-8") as f:
         config = json.load(f)
 
-    label = args.label or config.get("primaryType", "generic")
+    label = args.label or config.get("taskName", "")
 
     if args.mode == "archive":
         archive_mode(project_root, config, label)
