@@ -35,15 +35,27 @@ STATUS_EMOJIS = {
 
 
 def parse_range(value: str) -> list[int]:
-    """解析范围字符串：'2' → [2], '1-3' → [1,2,3], '1,3,5' → [1,3,5], '1-3,7' → [1,2,3,7]"""
+    """解析范围字符串：'2' → [2], '1-3' → [1,2,3], '1,3,5' → [1,3,5], '1-3,7' → [1,2,3,7]
+
+    只接受整数或整数范围。非整数输入（如 '2.5'）会给出友好错误提示。
+    """
     result = []
     for part in value.split(","):
         part = part.strip()
-        if "-" in part:
-            start, end = part.split("-", 1)
-            result.extend(range(int(start), int(end) + 1))
-        else:
-            result.append(int(part))
+        if not part:
+            continue
+        try:
+            if "-" in part:
+                start, end = part.split("-", 1)
+                result.extend(range(int(start), int(end) + 1))
+            else:
+                result.append(int(part))
+        except ValueError:
+            print(f"错误: '{part}' 不是有效的整数或整数范围", file=sys.stderr)
+            print("提示: --phase 和 --task 只接受整数或整数范围（如 1, 1-3, 0,2）", file=sys.stderr)
+            print("  --phase 的值是 workflow.json 中 phases 数组的索引（从 0 开始）", file=sys.stderr)
+            print("  如需限定到特定任务，请改用 --task <RANGE>（如 --task 10-16）", file=sys.stderr)
+            sys.exit(1)
     return sorted(set(result))
 
 
@@ -157,15 +169,18 @@ def count_remaining_tasks(
     tasks: list[dict],
     phase_list: list[int] | None,
     task_nums: list[int] | None,
-    task_prefix: str,
     count_all: bool,
 ) -> int:
     """计算剩余可执行任务数"""
     remaining = [t for t in tasks if t["status"] in ("pending", "in_progress")]
 
     if task_nums is not None:
-        target_ids = {f"{task_prefix}-{n:02d}" for n in task_nums}
-        remaining = [t for t in remaining if t["id"] in target_ids]
+        # 按编号中的数字部分匹配（忽略前缀）
+        target_nums = {f"{n:02d}" for n in task_nums}
+        remaining = [
+            t for t in remaining
+            if any(t["id"].endswith(f"-{num}") or t["id"] == num for num in target_nums)
+        ]
     elif not count_all and phase_list is not None:
         remaining = [t for t in remaining if t["phase"] in phase_list]
 
@@ -185,13 +200,12 @@ def build_phase_info(phases: list[dict]) -> str:
 def build_scope_constraint(
     task_nums: list[int] | None,
     phase_list: list[int] | None,
-    prefix: str,
     count_all: bool,
 ) -> str:
     """根据参数构建执行范围约束文本"""
     if task_nums is not None:
-        ids = ", ".join(f"{prefix}-{n:02d}" for n in task_nums)
-        return f"\n\n**执行范围限制**：仅执行以下任务：{ids}。跳过不在此列表中的任务。\n"
+        ids = ", ".join(f"{n:02d}" for n in task_nums)
+        return f"\n\n**执行范围限制**：仅执行以下编号的任务：{ids}。跳过不在此列表中的任务。\n"
     if not count_all and phase_list is not None:
         phases_str = "、".join(f"Phase {p}" for p in phase_list)
         return f"\n\n**执行范围限制**：仅执行 {phases_str} 的任务。跳过其他阶段的任务。\n"
@@ -199,14 +213,10 @@ def build_scope_constraint(
 
 
 def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
-    """构建自动执行协议 prompt"""
+    """构建自动执行协议 prompt（v2）"""
     ctx = workflow.get("projectContext", {})
-    constraints = workflow.get("constraints", {})
     build_cmd = ctx.get("buildCommand", "") or "无"
     test_cmd = ctx.get("testCommand", "") or "无"
-    prefix = workflow.get("taskPrefix", "T")
-    max_files = constraints.get("maxFilesPerTask", 8)
-    max_hours = constraints.get("maxHoursPerTask", 3)
     phase_info = build_phase_info(workflow.get("phases", []))
 
     return f"""# 自动执行协议
@@ -216,8 +226,6 @@ def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
 ## 项目配置
 - 构建命令: {build_cmd}
 - 测试命令: {test_cmd}
-- 任务前缀: {prefix}
-- 粒度约束: ≤{max_files} 文件, ≤{max_hours} 小时
 
 ## 阶段与退出标准
 {phase_info}
@@ -243,17 +251,23 @@ def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
 
 **实施**：按步骤实施，仅限任务范围内变更。使用 Edit 工具进行文件修改。
 
-**验证**：
-- 运行构建命令: {build_cmd}
-- 运行测试命令: {test_cmd}
-- 逐项检查验收标准
+**验证**（按验证门函数协议执行，参见 `${{CLAUDE_PLUGIN_ROOT}}/references/verification-gate.md`）：
+1. IDENTIFY：本任务需要什么验证证据？
+2. RUN：执行验证命令（构建: {build_cmd} / 测试: {test_cmd}）
+3. READ：读取完整输出，不只看 exit code
+4. VERIFY：输出是否匹配验收标准？逐项对照
+5. CLAIM：全部通过才标记完成
 
 **自动模式异常处理**：
-- 任务过大 → 拆分为子任务（编号 {prefix}-XX-a/b/c），执行第一个，其余留给后续迭代
+- 任务过大 → 拆分为子任务（编号 XX-a/b/c），执行第一个，其余留给后续迭代
 - 计划有误 → 标记当前任务为 ⏸️ 阻塞，在已知问题中记录原因，跳到下一任务
 - 依赖未满足 → 标记当前任务为 ⏸️ 阻塞，记录原因，跳到下一任务
 - 范围蔓延 → 完成范围内工作，在遗留问题中记录范围外需求
-- 验证失败 → 尝试修复一次，仍失败则标记 ⏸️ 阻塞
+- 验证失败 → 进入轻量调试：
+  1. 根因调查（读完整错误信息、检查 git diff、确认重现条件）
+  2. 一次假设验证（基于证据提出假设，最小修复尝试）
+  3. 修复成功 → 重新验证后继续
+  4. 修复失败 → 标记 ⏸️ 阻塞，将调试发现记录到交接记录，跳到下一任务
 
 ### 4. 更新状态（不可跳过）
 - 更新 TASK_STATUS.md：将任务标记为 ✅ 已完成，更新进度总览表，记录决策和问题
@@ -293,7 +307,7 @@ def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
   - **准确性**：实际变更是否符合任务目标，修改的文件是否与任务定义一致
   - **边界**：是否存在不属于任何任务的变更，是否有超出范围的额外修改
   - **跨任务一致性**：多个任务的变更之间是否有冲突或逻辑矛盾
-- 输出审计发现清单，每项标记严重程度：
+- 每项发现先标置信度（0-100），只有置信度 ≥80 的发现才进入严重度分类：
   - 🔴 阻断：必须修正才能继续
   - 🟡 需修正：应当修正但不阻塞
   - 🔵 建议：记录供后续参考
@@ -308,7 +322,7 @@ def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
 
 #### 7c. 退出标准与下游评估
 - 逐项验证该阶段的退出标准
-- 运行构建命令和测试命令
+- 运行构建命令和测试命令（按验证门函数协议）
 - 评估下游阶段任务是否需要调整（前提条件是否变化、文件是否有变化、步骤是否需要修改）
 - 如需调整，更新 TASK_PLAN.md 并在决策日志记录原因
 - 在 TASK_STATUS.md 决策日志中记录阶段回顾结论（含审计结果摘要）
@@ -325,6 +339,7 @@ def build_prompt(workflow: dict, scope_constraint: str = "") -> str:
 - 不做范围外变更（无关重构、格式化、顺手修 bug）
 - 门控校验不可跳过
 - 在状态更新和 commit 完成之前不要结束迭代
+- 不盲目重试失败的修复——轻量调试失败就标记阻塞，不要反复尝试
 - **禁止在步骤 8 的最终完成检查之外输出 `<promise>` 标签**（stop hook 会检测该标签来判断是否终止循环，提前输出会导致循环意外终止）
 """
 
@@ -402,7 +417,6 @@ def main() -> None:
         sys.exit(1)
 
     # 3. 解析范围参数
-    prefix = workflow.get("taskPrefix", "T")
     phase_list = parse_range(args.phase) if args.phase else None
     task_nums = parse_range(args.task) if args.task else None
 
@@ -416,7 +430,7 @@ def main() -> None:
 
     # 4. 计算任务统计
     remaining = count_remaining_tasks(
-        tasks, current_phases, task_nums, prefix, args.count_all
+        tasks, current_phases, task_nums, args.count_all
     )
     completed = sum(1 for t in tasks if t["status"] == "completed")
     blocked = sum(1 for t in tasks if t["status"] == "blocked")
@@ -431,7 +445,7 @@ def main() -> None:
     if args.max_iterations > 0:
         max_iter = max(args.max_iterations, 3)
     else:
-        max_iter = max(math.ceil(remaining * 1.5), 3)
+        max_iter = max(remaining * 3, 10)
 
     # 6. 检测 Ralph Loop
     ralph_detected = detect_ralph_loop()
@@ -443,7 +457,7 @@ def main() -> None:
 
     # 8. 生成 prompt 并创建状态文件
     scope_constraint = build_scope_constraint(
-        task_nums, current_phases, prefix, args.count_all
+        task_nums, current_phases, args.count_all
     )
     prompt = build_prompt(workflow, scope_constraint)
     state_path = create_state_file(project_root, max_iter, prompt)
