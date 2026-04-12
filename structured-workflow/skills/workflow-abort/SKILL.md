@@ -44,7 +44,7 @@ disable-model-invocation: true
 ## 工作流终止确认
 
 ### 进度快照
-- 任务类型: [primaryType]
+- 任务名称: [taskName]
 - 已完成: N 个任务
 - 未完成: N 个任务（进行中 N + 待开始 N + 暂停 N）
 - 已取消: N 个任务
@@ -107,7 +107,7 @@ disable-model-invocation: true
 # 工作流终止报告
 
 ## 基本信息
-- **任务类型**: [primaryType]
+- **任务名称**: [taskName]
 - **终止时间**: [当前日期时间]
 - **终止原因**: [用户提供的原因，未提供则写"用户主动终止"]
 
@@ -139,7 +139,7 @@ disable-model-invocation: true
 
 #### 删除模式
 
-**二次确认**：向用户展示将被删除的文件列表（TASK_ANALYSIS.md、TASK_PLAN.md、TASK_STATUS.md、DEPENDENCY_MAP.md、workflow.json 等），明确警告：
+**二次确认**：向用户展示将被删除的文件列表（TASK_ANALYSIS.md、TASK_PLAN.md、TASK_STATUS.md、DEPENDENCY_MAP.md、workflow.json、brainstorm/ 目录等），明确警告：
 
 ```
 ⚠ 删除确认

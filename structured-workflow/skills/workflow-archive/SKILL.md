@@ -38,7 +38,7 @@ disable-model-invocation: true
 # 工作流完成摘要
 
 ## 基本信息
-- **任务类型**: [primaryType]
+- **任务名称**: [taskName]
 - **开始时间**: [从 TASK_STATUS.md 创建时间]
 - **归档时间**: [当前日期]
 
@@ -82,13 +82,14 @@ disable-model-invocation: true
 
 脚本会：
 - 将 TASK_ANALYSIS.md、TASK_PLAN.md、TASK_STATUS.md、DEPENDENCY_MAP.md 移入归档目录
+- 将 `brainstorm/` 目录（如果存在）移入归档目录
 - 将 workflow.json 备份到归档目录后删除原件
 
 ### 步骤 4：验证清理
 
 确认以下文件已正确处理：
-- [ ] `docs/workflow/archive/{date}-{type}-{taskName}/` 目录存在且包含所有文件
-- [ ] `docs/workflow/archive/{date}-{type}-{taskName}/SUMMARY.md` 已生成
+- [ ] `docs/workflow/archive/{date}-{taskName}/` 目录存在且包含所有文件
+- [ ] `docs/workflow/archive/{date}-{taskName}/SUMMARY.md` 已生成
 - [ ] `docs/workflow/workflow.json` 已移除
 - [ ] `docs/workflow/TASK_ANALYSIS.md` 已移除
 - [ ] `docs/workflow/TASK_PLAN.md` 已移除

@@ -7,7 +7,7 @@
     uv run archive_workflow.py --path <project-root> [--label <标签>]
 
 选项:
-    --label <标签>    自定义归档标签（默认使用 workflow.json 中的 primaryType）
+    --label <标签>    自定义归档标签（默认使用 workflow.json 中的 taskName）
 """
 
 import argparse
@@ -63,16 +63,15 @@ def main() -> None:
         config = json.load(f)
 
     # 确定归档目录名
-    primary_type = config.get("primaryType", "generic")
     task_name = config.get("taskName", "")
     if args.label:
         name_part = slugify(args.label)
     elif task_name:
         name_part = slugify(task_name)
     else:
-        name_part = primary_type
+        name_part = "workflow"
     date_str = datetime.now().strftime("%Y%m%d")
-    archive_name = f"{date_str}-{primary_type}-{name_part}"
+    archive_name = f"{date_str}-{name_part}"
 
     archive_dir = project_root / "docs" / "workflow" / "archive" / archive_name
     if archive_dir.exists():

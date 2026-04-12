@@ -95,6 +95,7 @@ tools: Read, Write, Edit, Glob, Grep
 ## 通用约束
 
 - 所有任务必须遵循 `${CLAUDE_PLUGIN_ROOT}/references/task-format.md` 格式
-- 所有任务必须满足 `workflow.json` 中的粒度约束
+- 所有任务必须满足粒度原则：上下文自包含、单会话可完成、可独立验证、可独立回滚
 - 依赖关系不允许循环
+- 阶段编号必须使用整数（Phase 0, 1, 2...），不允许非整数阶段（如 Phase 2.5）。需要插入阶段时应重新编号
 - 规划阶段不修改任何项目代码
