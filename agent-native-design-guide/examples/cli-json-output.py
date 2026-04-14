@@ -7,6 +7,11 @@
 - --quiet 静默模式
 - 规范化退出码
 
+规范边界:
+  本示例仅对 JSON 信封形状 {success, data, metadata, error}、error 必含 {code, message, 恢复建议}、
+  退出码语义 (0/1/2/3/4/10) 三项是规范性的。其余字段 (metadata 的 command/timestamp/version、
+  error.code 枚举、data 字段命名) 均为实现选择, 可按业务增删 (如 took_ms、result_count)。
+
 运行方式：
   uv run python cli-json-output.py list --json
   uv run python cli-json-output.py list --json --fields id,name
