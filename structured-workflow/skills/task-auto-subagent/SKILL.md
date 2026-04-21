@@ -186,7 +186,7 @@ workflow.json.workflowBranch 字段
 | Status | 处理 |
 |---|---|
 | `DONE` | 继续 4c 派 spec-reviewer |
-| `DONE_WITH_CONCERNS` | 读 Concerns：correctness 问题 → 重派 implementer 修正（用 fix 模式 + concern 作为审计清单），observation → 记录到决策日志，继续 4c |
+| `DONE_WITH_CONCERNS` | 读 Concerns：correctness 问题 → 重派 implementer 修正（用 fix 模式 + concern 作为审计清单，**计入 4e 合并计数；达上限则按 plan 错 ⏸️ 跳下一**），observation → 记录到决策日志，继续 4c |
 | `BLOCKED`（task 太大）| 异常 1：停止本 task，更新 TASK_PLAN.md 拆分为 XX-a/b/c（用 Edit），TASK_STATUS.md 决策日志记录；仅执行 XX-a（即回到步骤 4 派遣 XX-a 作为本 step）|
 | `BLOCKED`（plan 错）| 异常 2：标记当前 task 状态为 ⏸️；追加问题到 TASK_STATUS.md "已知问题"；跳到 execution plan 的下一 step |
 | `BLOCKED`（dependency missing）| 异常 3：同上处理成 ⏸️，原因写依赖关系 |
@@ -214,7 +214,9 @@ workflow.json.workflowBranch 字段
 2. 用 `code-quality-reviewer-prompt.md` 模板派遣
 3. 根据回传：
    - `CODE_QUALITY_APPROVED` → 继续 4e
-   - `CODE_QUALITY_ISSUES` → 同 4c 的修复循环
+   - `CODE_QUALITY_ISSUES` → **按严重级别区别处理**：
+     - 含 Critical 或 Important 条目 → 同 4c 的修复循环（计入 4e 合并计数）
+     - **仅** Minor 条目 → **不**触发修复循环；把 Minor 清单追加到交接记录的"遗留问题"，视为已通过，继续 4e
 
 #### 4e. Review 循环上限 = 3
 
@@ -352,6 +354,6 @@ TaskUpdate 当前 PHASE-REVIEW step → `completed`。
 | 不跳过启动时分支处理 | "用户肯定知道自己在哪个分支" | `main`/`master` 启动会直接污染主分支，必须程序化校验 |
 | 不跳过 gating 校验 | "跨 phase 跑应该也 OK" | phase 的设计就是阶段门禁，跳过 = 废掉 phase 概念 |
 | 不信任 implementer 的自我验证 | "implementer 说测试通过了" | spec-reviewer 的职责就是独立验证，不是复述 |
-| 不合并 review 失败计数 | "spec 和 quality 是两个 reviewer" | 合并计数避免无限循环（spec 失败后 fix，fix 触发 quality 失败，两者交替刷次数） |
+| 不拆分 review 失败计数 | "spec 和 quality 是两个 reviewer" | spec 失败后 fix，fix 触发 quality 失败，两者交替会无限刷次数——必须合并计数才能真正限流 |
 | 不在 batch 中途做 push/PR | "反正都要提的" | PR / merge 是用户决策，本 skill 不越权 |
 | 不省略类型前缀推断 | "反正就是 feature/xxx" | 自动推断 + 宣告让用户能快速发现推断错误，比"静默建分支"安全 |
