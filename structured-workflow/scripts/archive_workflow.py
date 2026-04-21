@@ -116,6 +116,14 @@ def main() -> None:
         print(f"  ✓ 移动: {summary_path.relative_to(project_root)} → {dst.relative_to(project_root)}")
         moved_count += 1
 
+    # 移动 brainstorm/ 目录（如果存在）
+    brainstorm_dir = project_root / "docs" / "workflow" / "brainstorm"
+    if brainstorm_dir.is_dir():
+        dst = archive_dir / "brainstorm"
+        shutil.move(str(brainstorm_dir), str(dst))
+        print(f"  ✓ 移动: {brainstorm_dir.relative_to(project_root)}/ → {dst.relative_to(project_root)}/")
+        moved_count += 1
+
     # 将 workflow.json 也复制一份到归档目录（作为记录），然后删除原件
     workflow_dst = archive_dir / "workflow.json"
     shutil.copy2(str(workflow_path), str(workflow_dst))
