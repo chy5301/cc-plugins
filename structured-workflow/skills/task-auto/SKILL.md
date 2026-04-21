@@ -32,7 +32,7 @@ tools: Bash, Read, Write, Edit, Glob, Grep
 
 1. 确认 `docs/workflow/workflow.json` 存在（否则提示运行 `/workflow-init`，**终止**）
 2. 确认 `docs/workflow/TASK_STATUS.md` 存在且有待执行任务（否则**终止**）
-3. 检查 ralph-loop 插件是否已安装（使用通配符搜索 `~/.claude/plugins/marketplaces/*/plugins/ralph-loop/hooks/hooks.json`，不要硬编码特定 marketplace 名称）：
+3. 检查 ralph-loop 插件是否已安装（使用 Glob 工具：`path` 设为 `~/.claude`，`pattern` 设为 `**/ralph-loop/hooks/hooks.json`；不要硬编码特定 marketplace 名称，也不要使用含多层 `*` 的深层路径——后者在 Windows 下匹配不稳定）：
    - 如果**未安装**：告知用户 ralph-loop 未安装，自动循环无法工作。给出安装方式（在 Claude Code 中运行 `/install-plugin ralph-loop`），建议使用 `/task-exec` 手动逐个执行。**终止执行**。
 4. 检查 `jq` 是否可用（运行 `jq --version`）：
    - 如果**不可用**：告知用户 `jq` 是 ralph-loop stop hook 的必要依赖，自动循环无法工作。建议安装 `jq`（如 `winget install jqlang.jq`、`brew install jq` 等）。**终止执行**。
