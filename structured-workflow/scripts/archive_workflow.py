@@ -55,7 +55,7 @@ def main() -> None:
     if not workflow_path.exists():
         workflow_path = project_root / ".claude" / "workflow.json"
     if not workflow_path.exists():
-        print(f"错误: workflow.json 不存在", file=sys.stderr)
+        print("错误: workflow.json 不存在", file=sys.stderr)
         print("提示: 可能项目尚未初始化，或已经归档过了")
         sys.exit(1)
 
@@ -124,11 +124,11 @@ def main() -> None:
 
     # 输出摘要
     print()
-    print(f"归档完成！")
+    print("归档完成！")
     print(f"  归档目录: {archive_dir.relative_to(project_root)}")
     print(f"  移动文件: {moved_count} 个")
     print(f"  跳过文件: {skipped_count} 个")
-    print(f"  workflow.json: 已归档并移除")
+    print("  workflow.json: 已归档并移除")
     print()
     print("项目已恢复干净状态，可以开展下一轮大型任务。")
 
