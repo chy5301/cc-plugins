@@ -222,18 +222,26 @@ workflow.json.workflowBranch 字段
 
 4c 和 4d 合并计数。**任意一种 review 的 fix 循环总计 ≥ 3 轮**仍未过 → 标记当前 task ⏸️ 阻塞，把 3 轮 review 历史**全部追加到交接记录**（作为"Review 失败记录"块），跳到下一 step。
 
-#### 4f. Closeout：更新进度总览 + commit
+#### 4f. Closeout：更新 TASK_STATUS.md 两张表 + commit
 
-1. Read `TASK_STATUS.md`，定位"进度总览"表中当前 task 那一行
-2. 用 Edit 把状态从 ⬜/🔄 改为 ✅，更新进度总览表的完成数
-3. Bash commit：
+`TASK_STATUS.md` 里有**两张不同的表**，coordinator 在 closeout 时需要**同时更新**：
+
+- **"任务状态"表**（`## 任务状态` 章节下，每个 task 一行，列含 `编号 / 标题 / 阶段 / 状态 / 依赖`）：把当前 task 的**状态**单元格从 ⬜/🔄 改为 ✅
+- **"进度总览"表**（`## 进度总览` 章节下，聚合计数，列含 `阶段 / 总数 / 完成 / 进行中 / 待开始`）：把对应 phase 那一行的 `完成` +1、`待开始` -1（若从 🔄 切换还需 `进行中` -1），同步更新 `**合计**` 行
+
+步骤：
+
+1. Read `TASK_STATUS.md`
+2. 用 Edit 修改**任务状态表**对应 task 行的状态格
+3. 用 Edit 修改**进度总览表**对应 phase 行与合计行的计数
+4. Bash commit：
 
 ```bash
 git add docs/workflow/TASK_STATUS.md
 git commit -m "docs(structured-workflow): task XX-YY 进度总览 ✅"
 ```
 
-4. 在 Claude Code task list 中 TaskUpdate 当前 step 为 `completed`
+5. 在 Claude Code task list 中 TaskUpdate 当前 step 为 `completed`
 
 ### 步骤 5：处理 phase-review 类型 step
 
