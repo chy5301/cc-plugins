@@ -5,12 +5,14 @@
 - 成功/错误响应的统一格式
 - --fields 字段掩码
 - --quiet 静默模式
-- 规范化退出码
+- 语义化退出码
 
 规范边界:
   本示例仅对 JSON 信封形状 {success, data, metadata, error}、error 必含 {code, message, 恢复建议}、
-  退出码语义 (0/1/2/3/4/10) 三项是规范性的。其余字段 (metadata 的 command/timestamp/version、
-  error.code 枚举、data 字段命名) 均为实现选择, 可按业务增删 (如 took_ms、result_count)。
+  以及"退出码必须语义化"这一原则是规范性的。退出码的具体码值 (0/1/2/3/4/10) 是基线约定,
+  可按领域需要扩展 (如某 CLI 需要"结果歧义需消歧"语义可加 5)。
+  其余字段 (metadata 的 command/timestamp/version、error.code 枚举、data 字段命名) 均为实现选择,
+  可按业务增删 (如 took_ms、result_count)。
 
 运行方式：
   uv run python cli-json-output.py list --json
@@ -35,7 +37,7 @@ PROJECTS = [
 ALLOWED_FORMATS = ["pdf", "html", "json", "csv"]
 
 # === 退出码常量 ===
-# 语义化退出码，Agent 据此判断重试策略：
+# 语义化退出码基线约定（可按领域需要扩展更多码值），Agent 据此判断重试策略：
 #   0 = 成功
 #   1 = 一般错误（Agent 应报告给用户）
 #   2 = 参数/用法错误（Agent 应修正参数后重试）
