@@ -1,7 +1,7 @@
 {
   "name": "agent-native-design-guide",
   "description": "Agent-Native 软件设计指南。提供面向 AI Agent 的软件设计决策框架、十原则体系、三层架构模式和 CLI 设计参考实现。",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": {
     "name": "chy5301"
   },
