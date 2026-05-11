@@ -33,8 +33,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py create-task \
   [--content "任务内容"] \
   [--desc "清单描述"] \
   [--priority 0|1|3|5] \
-  [--due-date "2026-04-05T00:00:00+0800"] \
-  [--start-date "2026-04-04T00:00:00+0800"] \
+  [--due-date "2026-04-05"] \
+  [--start-date "2026-04-04"] \
   [--time-zone "Asia/Shanghai"] \
   [--all-day] \
   [--tags "标签1,标签2"] \
@@ -44,6 +44,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py create-task \
 **必需参数**：`--project`（项目 ID）和 `--title`（标题）。
 
 **优先级说明**：0=无, 1=低, 3=中, 5=高。
+
+**日期格式**：`--due-date` / `--start-date` 同时支持简短日期 `YYYY-MM-DD`（CLI 会自动补齐为 `T00:00:00+0800`）和完整 ISO 8601（如 `2026-04-05T14:30:00+0800`）。需要精确到时分时用后者。
 
 > 如果用户未提供项目 ID，先执行 `list-projects` 获取项目列表，让用户选择目标项目。
 
@@ -64,12 +66,17 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
   [--content "新内容"] \
   [--desc "清单描述"] \
   [--priority 0|1|3|5] \
-  [--due-date "..."] \
-  [--start-date "..."] \
-  [--tags "标签1,标签2"]
+  [--due-date "2026-04-05"] \
+  [--start-date "2026-04-04"] \
+  [--tags "标签1,标签2"] \
+  [--status 0|1|2]
 ```
 
 **必需参数**：`task_id`（位置参数）和 `--project`。只需传入要修改的字段。
+
+**状态说明**：`--status` 取值 0=未完成、1=放弃、2=已完成。放弃任务用 `--status 1`；完成任务推荐用专门的 `complete-task` 子命令。
+
+**日期格式**：同 create-task，支持 `YYYY-MM-DD` 或完整 ISO 8601。
 
 ### 删除任务
 

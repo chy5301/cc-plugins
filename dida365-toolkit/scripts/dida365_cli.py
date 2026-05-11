@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 
 import httpx
@@ -63,6 +64,19 @@ def output(data: object) -> None:
     """输出统一 JSON 成功信封。"""
     envelope = {"success": True, "data": data}
     print(json.dumps(envelope, ensure_ascii=False, indent=2))
+
+
+_DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def normalize_date(s: str | None) -> str | None:
+    """将 YYYY-MM-DD 自动补齐为 ISO 8601（默认 +0800 时区，零时整点）。
+
+    完整格式（含 T 与时区）原样返回，None 也原样返回。
+    """
+    if s and _DATE_ONLY_RE.match(s):
+        return f"{s}T00:00:00+0800"
+    return s
 
 
 def handle_response(resp: httpx.Response) -> object:
@@ -158,9 +172,9 @@ def cmd_create_task(args: argparse.Namespace) -> None:
     if args.priority is not None:
         body["priority"] = args.priority
     if args.due_date:
-        body["dueDate"] = args.due_date
+        body["dueDate"] = normalize_date(args.due_date)
     if args.start_date:
-        body["startDate"] = args.start_date
+        body["startDate"] = normalize_date(args.start_date)
     if args.time_zone:
         body["timeZone"] = args.time_zone
     if args.all_day:
@@ -184,9 +198,9 @@ def cmd_update_task(args: argparse.Namespace) -> None:
     if args.priority is not None:
         body["priority"] = args.priority
     if args.due_date:
-        body["dueDate"] = args.due_date
+        body["dueDate"] = normalize_date(args.due_date)
     if args.start_date:
-        body["startDate"] = args.start_date
+        body["startDate"] = normalize_date(args.start_date)
     if args.time_zone:
         body["timeZone"] = args.time_zone
     if args.all_day is not None:
@@ -195,6 +209,8 @@ def cmd_update_task(args: argparse.Namespace) -> None:
         body["tags"] = args.tags.split(",")
     if args.repeat_flag:
         body["repeatFlag"] = args.repeat_flag
+    if args.status is not None:
+        body["status"] = args.status
     with get_client() as c:
         output(handle_response(c.post(f"/task/{args.task_id}", json=body)))
 
@@ -300,8 +316,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--content", help="任务内容")
     p.add_argument("--desc", help="清单描述")
     p.add_argument("--priority", type=int, choices=[0, 1, 3, 5], help="优先级: 0=无 1=低 3=中 5=高")
-    p.add_argument("--due-date", help="截止时间 (ISO 8601, 如 2026-04-05T00:00:00+0800)")
-    p.add_argument("--start-date", help="开始时间 (ISO 8601)")
+    p.add_argument("--due-date", help="截止时间 (支持 YYYY-MM-DD 或完整 ISO 8601, 如 2026-04-05T00:00:00+0800)")
+    p.add_argument("--start-date", help="开始时间 (支持 YYYY-MM-DD 或完整 ISO 8601)")
     p.add_argument("--time-zone", help="时区，如 Asia/Shanghai")
     p.add_argument("--all-day", action="store_true", help="全天任务")
     p.add_argument("--tags", help="标签，逗号分隔")
@@ -314,12 +330,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--content", help="任务内容")
     p.add_argument("--desc", help="清单描述")
     p.add_argument("--priority", type=int, choices=[0, 1, 3, 5], help="优先级")
-    p.add_argument("--due-date", help="截止时间 (ISO 8601)")
-    p.add_argument("--start-date", help="开始时间 (ISO 8601)")
+    p.add_argument("--due-date", help="截止时间 (支持 YYYY-MM-DD 或完整 ISO 8601)")
+    p.add_argument("--start-date", help="开始时间 (支持 YYYY-MM-DD 或完整 ISO 8601)")
     p.add_argument("--time-zone", help="时区")
     p.add_argument("--all-day", type=bool, help="全天任务")
     p.add_argument("--tags", help="标签，逗号分隔")
     p.add_argument("--repeat-flag", help="循环规则 (RRULE 格式)")
+    p.add_argument("--status", type=int, choices=[0, 1, 2], help="状态: 0=未完成 1=放弃 2=已完成")
 
     p = sub.add_parser("complete-task", help="完成任务")
     p.add_argument("project_id", help="项目 ID")
