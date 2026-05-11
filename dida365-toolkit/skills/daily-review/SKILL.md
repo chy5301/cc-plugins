@@ -40,14 +40,17 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data inbox
 
 ### Step 3: 筛选今日任务
 
-使用当天日期范围筛选任务。将日期替换为实际的当前日期（如 `2026-04-04`）：
+使用当天日期范围筛选任务。将日期替换为实际的当前日期（如 `2026-04-04`）。日期参数支持简短 `YYYY-MM-DD`，下限自动补 `T00:00:00+0800`；查询当天范围时上限仍建议用完整时间戳以包含全天：
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --start-date "2026-04-04T00:00:00+0800" \
+  --start-date "2026-04-04" \
   --end-date "2026-04-04T23:59:59+0800" \
-  --status 0
+  --status 0 \
+  --fields id,title,projectId,priority,dueDate
 ```
+
+> 附加 `--fields` 显著降低返回 JSON 体积，加速 Agent 解析。
 
 > **注意**：`filter-tasks` 的日期参数基于任务的 `startDate` 字段，而非 `dueDate`。
 
@@ -66,7 +69,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
   --end-date "2026-04-03T23:59:59+0800" \
-  --status 0
+  --status 0 \
+  --fields id,title,projectId,dueDate,priority
 ```
 
 ### Step 5: 筛选高优先级任务

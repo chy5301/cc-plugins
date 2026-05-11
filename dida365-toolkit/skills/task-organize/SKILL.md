@@ -45,7 +45,19 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data <源项目I
 
 从返回的任务列表中找到要移动的任务 ID。
 
-### Step 3: 执行移动
+### Step 3: 预演（推荐）
+
+批量移动是破坏性操作，建议先附加 `--dry-run` 让 CLI 输出将要发送的请求体，确认任务列表与方向无误：
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
+  --from <源项目ID> --to <目标项目ID> --tasks <任务ID1,任务ID2,...> \
+  --dry-run
+```
+
+`--dry-run` 退出码为 10，输出包含 `data.would_call` 和 `data.body`。
+
+### Step 4: 执行移动
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
@@ -54,9 +66,9 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
   --tasks <任务ID1,任务ID2,...>
 ```
 
-支持一次移动多个任务，任务 ID 用逗号分隔。
+支持一次移动多个任务，任务 ID 用逗号分隔（自动 trim 空白）。
 
-### Step 4: 确认结果
+### Step 5: 确认结果
 
 成功后返回包含任务 ID 和新 etag 的数组。向用户确认移动完成。
 

@@ -22,6 +22,13 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
+## 通用能力（所有子命令均可用）
+
+- `--fields KEY[,KEY...]`：顶层字段掩码，列表自动逐项裁剪。**返回大对象时优先使用**以保护上下文窗口（如 `list-projects --fields id,name`）。
+- `--dry-run`：只输出 `would_call`（含 HTTP 方法、路径、请求体），不真正调用 API，退出码 10。**破坏性操作（delete-* / update-* / move-tasks）建议先 dry-run 预演**。
+- 响应统一信封：`{"success": true, "data": ..., "metadata": {"command", "took_ms", "result_count"}}`；失败时为 `{"success": false, "error": {"code", "message", "suggestion"}}`。
+- 自省：`schema [<子命令名>]` 输出参数 JSON Schema，用于 Agent 不解析文本帮助即可获取参数定义。
+
 ## 操作说明
 
 ### 创建任务
@@ -84,7 +91,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py delete-task <项目ID> <任务ID>
 ```
 
-> **注意**：删除操作不可逆，执行前应向用户确认。
+> **注意**：删除操作不可逆，执行前应向用户确认。建议先附加 `--dry-run` 验证将要删除的资源路径（退出码 10），确认无误后再正式执行。
 
 ## 辅助操作
 
