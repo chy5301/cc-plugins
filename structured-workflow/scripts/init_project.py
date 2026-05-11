@@ -7,12 +7,14 @@
     uv run init_project.py --path <project-root> [options]
 
 选项:
-    --task-name <slug>      任务名称 slug（如 extract-auth-module）
-    --phases <names>        自定义阶段名（逗号分隔）
-    --description <desc>    项目简述
-    --build-cmd <cmd>       构建命令
-    --test-cmd <cmd>        测试命令
-    --force                 跳过覆盖确认（非交互式环境使用）
+    --task-name <slug>          任务名称 slug（如 extract-auth-module）
+    --workflow-branch <name>    本次工作流绑定的 git 分支名（如 feature/extract-auth-module）
+    --workflow-type <type>      工作流类型前缀（feature/fix/refactor/chore/docs）
+    --phases <names>            自定义阶段名（逗号分隔）
+    --description <desc>        项目简述
+    --build-cmd <cmd>           构建命令
+    --test-cmd <cmd>            测试命令
+    --force                     跳过覆盖确认（非交互式环境使用）
 """
 
 import argparse
@@ -54,6 +56,16 @@ def parse_args() -> argparse.Namespace:
         help="任务名称 slug（英文短横线分隔，如 extract-auth-module）",
     )
     parser.add_argument(
+        "--workflow-branch",
+        default="",
+        help="本次工作流绑定的 git 分支名（如 feature/extract-auth-module）；留空表示未启用",
+    )
+    parser.add_argument(
+        "--workflow-type",
+        default="",
+        help="工作流类型前缀（feature/fix/refactor/chore/docs）；留空表示未声明",
+    )
+    parser.add_argument(
         "--phases", default=None, help="自定义阶段名，逗号分隔"
     )
     parser.add_argument(
@@ -86,6 +98,8 @@ def create_workflow_json(args: argparse.Namespace) -> dict:
         "version": "2.0",
         "initCommit": "",
         "taskName": args.task_name or "",
+        "workflowBranch": args.workflow_branch or "",
+        "workflowType": args.workflow_type or "",
         "stateFiles": {
             "analysis": "docs/workflow/TASK_ANALYSIS.md",
             "plan": "docs/workflow/TASK_PLAN.md",
@@ -195,6 +209,9 @@ def main() -> None:
     print("初始化完成！")
     if config["taskName"]:
         print(f"  任务: {config['taskName']}")
+    if config["workflowBranch"]:
+        type_hint = f" ({config['workflowType']})" if config["workflowType"] else ""
+        print(f"  工作分支: {config['workflowBranch']}{type_hint}")
     print(f"  阶段: {len(config['phases'])} 个" if config["phases"] else "  阶段: 待规划")
     if config["initCommit"]:
         print(f"  initCommit: {config['initCommit'][:8]}")
