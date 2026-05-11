@@ -20,6 +20,8 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。
+
 ## 步骤
 
 ### Step 1: 了解用户意图
