@@ -25,8 +25,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
   [--projects <项目ID1,项目ID2>] \
-  [--start-date "2026-04-01T00:00:00+0800"] \
-  [--end-date "2026-04-07T23:59:59+0800"] \
+  [--start-date "2026-04-01"] \
+  [--end-date "2026-04-07"] \
   [--priority 0,1,3,5] \
   [--tags "标签1,标签2"] \
   [--status 0,2]
@@ -37,13 +37,20 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 | 参数 | 说明 | 示例 |
 |------|------|------|
 | `--projects` | 按项目筛选，逗号分隔 | `--projects id1,id2` |
-| `--start-date` | 任务 startDate >= 此值 | `--start-date "2026-04-01T00:00:00+0800"` |
-| `--end-date` | 任务 startDate <= 此值 | `--end-date "2026-04-07T23:59:59+0800"` |
+| `--start-date` | 任务 startDate >= 此值。支持 `YYYY-MM-DD`（自动补 `T00:00:00+0800`）或完整 ISO 8601 | `--start-date "2026-04-01"` 或 `--start-date "2026-04-01T09:00:00+0800"` |
+| `--end-date` | 任务 startDate <= 此值。同上支持简短与完整两种格式 | `--end-date "2026-04-07T23:59:59+0800"` |
 | `--priority` | 优先级列表。0=无, 1=低, 3=中, 5=高 | `--priority 3,5`（中和高） |
 | `--tags` | 标签（AND 关系，需全部匹配） | `--tags "工作,紧急"` |
 | `--status` | 状态。0=未完成, 2=已完成 | `--status 0` |
 
 所有参数都是可选的，可自由组合。
+
+**节省上下文**：查询结果通常包含每个任务的全部字段（id、title、content、tags、dueDate、createdTime、modifiedTime 等）。当只需要少数字段时附加 `--fields` 显著降低 token 占用：
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks --priority 5 \
+  --fields id,title,dueDate,priority
+```
 
 ### 常见查询场景
 
@@ -56,13 +63,20 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks --priority 5
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
   --projects <项目ID> \
-  --start-date "2026-03-31T00:00:00+0800" \
-  --end-date "2026-04-06T23:59:59+0800"
+  --start-date "2026-03-31" \
+  --end-date "2026-04-06"
 ```
 
 **查看带特定标签的未完成任务：**
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks --tags "紧急" --status 0
+```
+
+**按精确时段筛选（需要小时/分钟粒度时使用完整 ISO 8601）：**
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
+  --start-date "2026-03-31T14:00:00+0800" \
+  --end-date "2026-03-31T18:00:00+0800"
 ```
 
 ### 查找逾期任务
@@ -88,19 +102,19 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py query-completed \
   [--projects <项目ID1,项目ID2>] \
-  [--start-date "2026-04-01T00:00:00+0800"] \
-  [--end-date "2026-04-04T23:59:59+0800"]
+  [--start-date "2026-04-01"] \
+  [--end-date "2026-04-04"]
 ```
 
-筛选条件基于任务的 `completedTime`（完成时间）。
+筛选条件基于任务的 `completedTime`（完成时间）。日期格式同 filter-tasks，支持 `YYYY-MM-DD` 或完整 ISO 8601。
 
 ### 常见查询场景
 
 **查看本周完成了什么：**
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py query-completed \
-  --start-date "2026-03-31T00:00:00+0800" \
-  --end-date "2026-04-06T23:59:59+0800"
+  --start-date "2026-03-31" \
+  --end-date "2026-04-06"
 ```
 
 **查看某项目的已完成任务：**
