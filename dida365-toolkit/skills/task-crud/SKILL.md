@@ -1,8 +1,8 @@
 ---
 name: task-crud
 description: |
-  创建、查看、更新、删除滴答清单任务。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""create task""update task""delete task""add todo""在滴答清单里加一个..."时使用。
-version: 0.1.0
+  创建、查看、更新、删除、放弃滴答清单任务。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""放弃任务""不做了""取消任务""create task""update task""delete task""abandon task""add todo""在滴答清单里加一个..."时使用。
+version: 0.2.0
 tools: Bash
 ---
 
@@ -22,12 +22,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-## 通用能力（所有子命令均可用）
-
-- `--fields KEY[,KEY...]`：顶层字段掩码，列表自动逐项裁剪。**返回大对象时优先使用**以保护上下文窗口（如 `list-projects --fields id,name`）。
-- `--dry-run`：只输出 `would_call`（含 HTTP 方法、路径、请求体），不真正调用 API，退出码 10。**破坏性操作（delete-* / update-* / move-tasks）建议先 dry-run 预演**。
-- 响应统一信封：`{"success": true, "data": ..., "metadata": {"command", "took_ms", "result_count"}}`；失败时为 `{"success": false, "error": {"code", "message", "suggestion"}}`。
-- 自省：`schema [<子命令名>]` 输出参数 JSON Schema，用于 Agent 不解析文本帮助即可获取参数定义。
+> 全局通用约定（`--fields` 字段掩码、`--dry-run` 预演、响应信封、退出码、`schema` 自省、日期格式归一化等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。本文档仅讲解任务子命令本身。
 
 ## 操作说明
 

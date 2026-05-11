@@ -20,6 +20,8 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省、日期格式归一化）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。
+
 ## 筛选未完成/全部任务
 
 ```bash
@@ -88,10 +90,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 2. 逐个调用 `get-project-data <项目ID>` 获取未完成任务
 3. 在返回的 JSON 中，筛选 `dueDate` 早于今天且 `status == 0` 的任务
 
-如果用户只需要粗略的逾期检测（任务开始日期已过），可以用：
+如果用户只需要粗略的逾期检测（任务开始日期已过），可以用（**将 `<昨天>` 替换为当前日期前一天的实际日期，如 `2026-05-10`**——`"昨天"` 不是合法的 ISO 8601 字符串，必须先解析为具体日期）：
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --end-date "昨天T23:59:59+0800" \
+  --end-date "<昨天>T23:59:59+0800" \
   --status 0
 ```
 
