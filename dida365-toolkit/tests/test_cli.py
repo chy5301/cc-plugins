@@ -204,3 +204,9 @@ def test_raw_get_without_body(monkeypatch):
     cli.cmd_raw(args)
     assert _FakeClient.last["method"] == "GET"
     assert _FakeClient.last["json"] is None
+
+
+def test_main_parser_epilog_mentions_schema():
+    parser = cli.build_parser()
+    assert "schema" in (parser.epilog or "")
+    assert "--body" in (parser.epilog or "")

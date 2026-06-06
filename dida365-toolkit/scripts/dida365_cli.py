@@ -384,6 +384,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dida365_cli",
         description="滴答清单 Open API CLI 工具",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "字段透传说明：\n"
+            "  有请求体的命令（create-task/update-task/create-project/update-project/\n"
+            "  filter-tasks/query-completed/move-tasks）字段统一经 --body JSON 传入。\n"
+            "  构造 --body 前，用 `schema <操作>` 查询该操作的完整字段定义。\n"
+            "\n"
+            "完备性：\n"
+            "  schema 未收录的字段或端点，用 `raw --method --path --body` 直接透传。\n"
+            "  任何 Open API 能做的操作 CLI 都不限制。\n"
+            "\n"
+            "示例：\n"
+            "  dida365_cli.py schema create-task\n"
+            "  dida365_cli.py create-task --project inbox --body '{\"title\":\"买菜\"}'\n"
+            "  dida365_cli.py raw --method POST --path /task/<id> --body '{...}'"
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
