@@ -49,11 +49,11 @@ _TASK_FIELDS = {
     "startDate":  {"type": "str",  "desc": "开始时间 ISO8601，如 2026-04-05T00:00:00+0800"},
     "dueDate":    {"type": "str",  "desc": "截止时间 ISO8601"},
     "timeZone":   {"type": "str",  "desc": "时区，如 Asia/Shanghai"},
-    "reminders":  {"type": "array", "desc": "提醒触发器字符串数组，如 [\"TRIGGER:PT0S\",\"TRIGGER:P0DT9H0M0S\"]"},
+    "reminders":  {"type": "array", "items": "str", "desc": "提醒触发器字符串数组，如 [\"TRIGGER:PT0S\",\"TRIGGER:P0DT9H0M0S\"]"},
     "repeatFlag": {"type": "str",  "desc": "循环规则 RRULE，如 RRULE:FREQ=DAILY;INTERVAL=1"},
     "priority":   {"type": "int",  "enum": [0, 1, 3, 5], "desc": "优先级：0无 1低 3中 5高"},
     "sortOrder":  {"type": "int",  "desc": "排序值"},
-    "tags":       {"type": "array", "desc": "标签字符串数组，如 [\"工作\",\"紧急\"]"},
+    "tags":       {"type": "array", "items": "str", "desc": "标签字符串数组，如 [\"工作\",\"紧急\"]"},
     "items":      {"type": "array", "desc": "子任务列表，元素见 api-reference.md ChecklistItem"},
     "projectId":  {"type": "str",  "desc": "所属项目 ID（通常由 --project 注入）"},
 }
@@ -93,19 +93,19 @@ OPERATION_SCHEMAS = {
         "method": "POST", "path": "/task/filter",
         "locators": {}, "required": [],
         "fields": {
-            "projectIds": {"type": "array", "desc": "项目 ID 数组"},
+            "projectIds": {"type": "array", "items": "str", "desc": "项目 ID 数组"},
             "startDate":  {"type": "str",  "desc": "任务 startDate >= 此值，ISO8601"},
             "endDate":    {"type": "str",  "desc": "任务 startDate <= 此值，ISO8601"},
-            "priority":   {"type": "array", "desc": "优先级数组，如 [3,5]"},
-            "tag":        {"type": "array", "desc": "标签数组（AND 关系）"},
-            "status":     {"type": "array", "desc": "状态数组：0未完成 2已完成"},
+            "priority":   {"type": "array", "items": "int", "desc": "优先级数组，如 [3,5]"},
+            "tag":        {"type": "array", "items": "str", "desc": "标签数组（AND 关系）"},
+            "status":     {"type": "array", "items": "int", "desc": "状态数组：0未完成 2已完成"},
         },
     },
     "query-completed": {
         "method": "POST", "path": "/task/completed",
         "locators": {}, "required": [],
         "fields": {
-            "projectIds": {"type": "array", "desc": "项目 ID 数组"},
+            "projectIds": {"type": "array", "items": "str", "desc": "项目 ID 数组"},
             "startDate":  {"type": "str",  "desc": "completedTime >= 此值，ISO8601"},
             "endDate":    {"type": "str",  "desc": "completedTime <= 此值，ISO8601"},
         },
@@ -159,6 +159,13 @@ def validate_body(operation: str, body: dict) -> list[str]:
         if not isinstance(val, expected):
             errors.append(f"字段 '{key}' 类型应为 {spec['type']}，收到 {type(val).__name__}")
             continue
+        if spec["type"] == "array" and "items" in spec:
+            elem_pytype = _PYTYPE[spec["items"]]
+            for idx, elem in enumerate(val):
+                if spec["items"] == "int" and isinstance(elem, bool):
+                    errors.append(f"字段 '{key}' 第 {idx} 个元素应为 int，收到 bool")
+                elif not isinstance(elem, elem_pytype):
+                    errors.append(f"字段 '{key}' 第 {idx} 个元素应为 {spec['items']}，收到 {type(elem).__name__}")
         if "enum" in spec and val not in spec["enum"]:
             errors.append(f"字段 '{key}' 取值应在 {spec['enum']} 内，收到 {val!r}")
     for req in schema.get("required", []):
@@ -378,6 +385,9 @@ def cmd_raw(args: argparse.Namespace) -> None:
 
 def cmd_schema(args: argparse.Namespace) -> None:
     """输出操作的字段 schema（单一事实来源），供 agent 构造 --body。"""
+    if args.all and args.operation:
+        _fail("INVALID_PARAMETER", "--all 与指定操作名互斥",
+              suggestion="用 `schema <操作>` 查单个操作，或 `schema --all` 查全部", exit_code=EXIT_USAGE)
     if args.all:
         output({op: s for op, s in OPERATION_SCHEMAS.items()})
         return

@@ -269,3 +269,42 @@ def test_raw_method_accepts_mixed_case():
     parser = cli.build_parser()
     args = parser.parse_args(["raw", "--method", "Post", "--path", "/task"])
     assert args.method == "POST"
+
+
+# ── C3: validate array element types ─────────────────────────────────────────
+
+
+def test_validate_body_rejects_wrong_array_element_type():
+    errs = cli.validate_body("filter-tasks", {"priority": ["high"]})
+    assert any("priority" in e for e in errs)
+
+
+def test_validate_body_rejects_int_array_with_string_elements():
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "tags": [1, 2]})
+    assert any("tags" in e for e in errs)
+
+
+def test_validate_body_accepts_correct_array_elements():
+    errs = cli.validate_body("filter-tasks", {"priority": [3, 5], "status": [0]})
+    assert errs == []
+
+
+def test_validate_body_rejects_bool_in_int_array():
+    errs = cli.validate_body("filter-tasks", {"priority": [True]})
+    assert any("priority" in e for e in errs)
+
+
+def test_validate_body_items_field_still_exempt():
+    # items (subtasks) is an array of objects, intentionally not element-type-checked
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "items": [{"title": "sub"}]})
+    assert errs == []
+
+
+# ── C7: schema --all + operation must conflict ────────────────────────────────
+
+
+def test_cmd_schema_all_with_operation_conflicts(capsys):
+    import argparse, pytest
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_schema(argparse.Namespace(operation="create-task", all=True))
+    assert e.value.code == cli.EXIT_USAGE
