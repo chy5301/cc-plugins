@@ -1,8 +1,8 @@
 ---
 name: task-complete
 description: |
-  标记滴答清单任务为已完成。当用户提到"完成任务""标记完成""做完了""打勾""勾掉""mark complete""check off task""finish task""这个任务搞定了"时使用。
-version: 0.1.0
+  标记滴答清单任务为已完成（非"放弃"——放弃任务请使用 task-crud 的 update-task --status 1）。当用户提到"完成任务""标记完成""做完了""打勾""勾掉""mark complete""check off task""finish task""这个任务搞定了"时使用。
+version: 0.2.0
 tools: Bash
 ---
 
@@ -70,3 +70,4 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py complete-task <项目ID> <�
 
 - 完成操作不可逆（无法通过 API 将已完成任务恢复为未完成）
 - 任务完成后，可通过 `query-completed` 命令查询已完成任务（query-completed 的调用见 task-query skill，查询条件经 `--body` JSON 传入）
+- 如需放弃任务而非完成 → 使用 task-crud 的 `update-task --status 1`

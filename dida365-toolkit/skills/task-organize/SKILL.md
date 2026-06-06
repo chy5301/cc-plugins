@@ -2,7 +2,7 @@
 name: task-organize
 description: |
   在滴答清单项目间移动和整理任务。当用户提到"移动任务""把任务从...移到...""整理任务""归类""转移""换个清单""move task""reorganize tasks""任务搬到另一个清单"时使用。
-version: 0.2.0
+version: 0.3.0
 tools: Bash
 ---
 
@@ -77,3 +77,4 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
 - 移动任务不会改变任务的其他属性（标题、优先级、日期等）
 - 一次 `move-tasks` 调用中，所有任务必须来自同一个源项目
 - 如果需要从多个源项目移动，分多次调用
+- 移动后想批量修改优先级/标签/状态 → 使用 task-crud

@@ -60,7 +60,16 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
 **必需**：位置参数 `task_id`、`--project`。只在 `--body` 中传要修改的字段。
 **字段定义**：`schema update-task`。
 
-**状态说明**：`status` 取值 0=未完成、1=放弃、2=已完成。放弃任务用 `"status":1`；完成任务推荐用专门的 `complete-task` 子命令。
+**状态说明**：`status` 取值 0=未完成、1=放弃、2=已完成。
+
+**放弃任务**：
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
+  --project <项目ID> \
+  --body '{"status":1}'
+```
+
+**标记完成**：推荐使用 task-complete skill 的 `complete-task` 子命令（专用 API 端点，非 status 更新）。
 
 **日期格式**：`--body` 中的日期字段同时支持简短 `YYYY-MM-DD`（CLI 自动补 `T00:00:00+0800`）和完整 ISO 8601（如 `2026-04-05T14:30:00+0800`）。
 
