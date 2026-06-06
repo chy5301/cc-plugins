@@ -12,12 +12,12 @@ Skill (Markdown 指令) → Bash: uv run dida365_cli.py <command> → 滴答清�
 
 兼容 Claude Code（plugin 形式）和其他 AI Agent（skill 形式）。
 
-## 0.2.0 调用方式变更（破坏性）
+## 0.4.0 调用方式变更（破坏性）
 
-自 0.2.0 起，有请求体的命令（create-task/update-task/create-project/update-project/
+自 0.4.0 起，有请求体的命令（create-task/update-task/create-project/update-project/
 filter-tasks/query-completed/move-tasks）的字段不再用独立 flag，统一经 `--body` JSON 传入。
 
-| 旧（≤0.1.0） | 新（≥0.2.0） |
+| 旧（≤0.3.1） | 新（≥0.4.0） |
 |---|---|
 | `create-task --project P --title 买菜 --priority 3` | `create-task --project P --body '{"title":"买菜","priority":3}'` |
 | `filter-tasks --priority 3,5 --status 0` | `filter-tasks --body '{"priority":[3,5],"status":[0]}'` |
