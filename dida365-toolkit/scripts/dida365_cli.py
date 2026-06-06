@@ -34,6 +34,90 @@ EXIT_PERMISSION = 4
 # HTTP 状态码到语义退出码的映射
 _STATUS_TO_EXIT = {401: EXIT_PERMISSION, 403: EXIT_PERMISSION, 404: EXIT_NOT_FOUND}
 
+# update-task 与 create-task 共享大部分字段：先构造共享字段，再分别组装
+_TASK_FIELDS = {
+    "title":      {"type": "str",  "desc": "任务标题"},
+    "content":    {"type": "str",  "desc": "任务内容（正文）"},
+    "desc":       {"type": "str",  "desc": "清单描述"},
+    "isAllDay":   {"type": "bool", "desc": "是否全天任务"},
+    "startDate":  {"type": "str",  "desc": "开始时间 ISO8601，如 2026-04-05T00:00:00+0800"},
+    "dueDate":    {"type": "str",  "desc": "截止时间 ISO8601"},
+    "timeZone":   {"type": "str",  "desc": "时区，如 Asia/Shanghai"},
+    "reminders":  {"type": "array", "desc": "提醒触发器字符串数组，如 [\"TRIGGER:PT0S\",\"TRIGGER:P0DT9H0M0S\"]"},
+    "repeatFlag": {"type": "str",  "desc": "循环规则 RRULE，如 RRULE:FREQ=DAILY;INTERVAL=1"},
+    "priority":   {"type": "int",  "enum": [0, 1, 3, 5], "desc": "优先级：0无 1低 3中 5高"},
+    "sortOrder":  {"type": "int",  "desc": "排序值"},
+    "tags":       {"type": "array", "desc": "标签字符串数组，如 [\"工作\",\"紧急\"]"},
+    "items":      {"type": "array", "desc": "子任务列表，元素见 api-reference.md ChecklistItem"},
+    "projectId":  {"type": "str",  "desc": "所属项目 ID（通常由 --project 注入）"},
+}
+
+_PROJECT_FIELDS = {
+    "name":      {"type": "str", "desc": "项目名称"},
+    "color":     {"type": "str", "desc": "项目颜色，如 #F18181"},
+    "viewMode":  {"type": "str", "enum": ["list", "kanban", "timeline"], "desc": "视图模式"},
+    "kind":      {"type": "str", "enum": ["TASK", "NOTE"], "desc": "项目类型"},
+    "sortOrder": {"type": "int", "desc": "排序值"},
+}
+
+OPERATION_SCHEMAS = {
+    "create-task": {
+        "method": "POST", "path": "/task",
+        "locators": {"project": "projectId"},
+        "required": ["title", "projectId"],
+        "fields": _TASK_FIELDS,
+    },
+    "update-task": {
+        "method": "POST", "path": "/task/{task_id}",
+        "locators": {"task_id": "id", "project": "projectId"},
+        "required": ["id", "projectId"],
+        "fields": {**_TASK_FIELDS, "id": {"type": "str", "desc": "任务 ID"}},
+    },
+    "create-project": {
+        "method": "POST", "path": "/project",
+        "locators": {}, "required": ["name"], "fields": _PROJECT_FIELDS,
+    },
+    "update-project": {
+        "method": "POST", "path": "/project/{project_id}",
+        "locators": {"project_id": None}, "required": [], "fields": _PROJECT_FIELDS,
+    },
+    "filter-tasks": {
+        "method": "POST", "path": "/task/filter",
+        "locators": {}, "required": [],
+        "fields": {
+            "projectIds": {"type": "array", "desc": "项目 ID 数组"},
+            "startDate":  {"type": "str",  "desc": "任务 startDate >= 此值，ISO8601"},
+            "endDate":    {"type": "str",  "desc": "任务 startDate <= 此值，ISO8601"},
+            "priority":   {"type": "array", "desc": "优先级数组，如 [3,5]"},
+            "tag":        {"type": "array", "desc": "标签数组（AND 关系）"},
+            "status":     {"type": "array", "desc": "状态数组：0未完成 2已完成"},
+        },
+    },
+    "query-completed": {
+        "method": "POST", "path": "/task/completed",
+        "locators": {}, "required": [],
+        "fields": {
+            "projectIds": {"type": "array", "desc": "项目 ID 数组"},
+            "startDate":  {"type": "str",  "desc": "completedTime >= 此值，ISO8601"},
+            "endDate":    {"type": "str",  "desc": "completedTime <= 此值，ISO8601"},
+        },
+    },
+    "move-tasks": {
+        "method": "POST", "path": "/task/move",
+        "locators": {}, "required": [], "body_is_array": True,
+        "fields": {
+            "fromProjectId": {"type": "str", "desc": "源项目 ID"},
+            "toProjectId":   {"type": "str", "desc": "目标项目 ID"},
+            "taskId":        {"type": "str", "desc": "任务 ID"},
+        },
+    },
+}
+
+
+def get_schema(operation: str) -> dict:
+    """返回操作的 schema 定义；未知操作抛 KeyError。"""
+    return OPERATION_SCHEMAS[operation]
+
 
 def get_client() -> httpx.Client:
     if not TOKEN:
