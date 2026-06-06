@@ -344,6 +344,22 @@ def cmd_query_completed(args: argparse.Namespace) -> None:
     run_body_command("query-completed", args, {})
 
 
+# ── 通用透传 ─────────────────────────────────────────────────────────────────
+
+
+def cmd_raw(args: argparse.Namespace) -> None:
+    """通用透传：对任意端点发任意请求体。绕过 schema 校验，用于 schema 未收录的字段/端点。
+    仍享受认证注入、统一信封与退出码。"""
+    method = args.method.upper()
+    try:
+        body = load_body(args.body) if args.body else None
+    except (ValueError, json.JSONDecodeError) as exc:
+        _fail("INVALID_JSON", f"--body 不是合法 JSON：{exc}", exit_code=EXIT_USAGE)
+    path = args.path if args.path.startswith("/") else "/" + args.path
+    with get_client() as c:
+        output(handle_response(c.request(method, path, json=body)))
+
+
 # ── Schema 自省 ──────────────────────────────────────────────────────────────
 
 
@@ -429,6 +445,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("operation", nargs="?", help="操作名，如 create-task；省略时配合 --all")
     p.add_argument("--all", action="store_true", help="输出全部操作的 schema")
 
+    # ── 通用透传 ──
+    p = sub.add_parser("raw", help="通用透传：对任意 Open API 端点发任意请求体（schema 兜底逃生舱）")
+    p.add_argument("--method", required=True,
+                   choices=["get", "post", "delete", "put", "GET", "POST", "DELETE", "PUT"],
+                   help="HTTP 方法")
+    p.add_argument("--path", required=True, help="API 路径（/open/v1 之后部分），如 /task/<id>")
+    p.add_argument("--body", help="请求体 JSON（GET/DELETE 可省略）")
+
     return parser
 
 
@@ -448,6 +472,7 @@ COMMAND_MAP = {
     "filter-tasks": cmd_filter_tasks,
     "query-completed": cmd_query_completed,
     "schema": cmd_schema,
+    "raw": cmd_raw,
 }
 
 

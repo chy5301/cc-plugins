@@ -185,3 +185,22 @@ def test_move_tasks_rejects_non_array(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.cmd_move_tasks(args)
     assert e.value.code == cli.EXIT_USAGE
+
+
+def test_raw_passthrough(monkeypatch):
+    import argparse
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(method="post", path="/task/T1", body='{"id":"T1","isAllDay":true}')
+    cli.cmd_raw(args)
+    assert _FakeClient.last["method"] == "POST"
+    assert _FakeClient.last["path"] == "/task/T1"
+    assert _FakeClient.last["json"] == {"id": "T1", "isAllDay": True}
+
+
+def test_raw_get_without_body(monkeypatch):
+    import argparse
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(method="get", path="/project", body=None)
+    cli.cmd_raw(args)
+    assert _FakeClient.last["method"] == "GET"
+    assert _FakeClient.last["json"] is None
