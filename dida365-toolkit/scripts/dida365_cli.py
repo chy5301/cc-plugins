@@ -163,6 +163,23 @@ def validate_body(operation: str, body: dict) -> list[str]:
     return errors
 
 
+def assemble_body(operation: str, locator_values: dict, body: dict) -> dict:
+    """把定位参数按 locators 映射注入 body（_URL_ONLY/None 映射表示仅用于 path，不注入）。
+    用户在 --body 显式给出的同名字段优先保留。"""
+    merged = dict(body)
+    for cli_arg, body_field in OPERATION_SCHEMAS[operation]["locators"].items():
+        if body_field is None:
+            continue
+        if body_field not in merged and locator_values.get(cli_arg) is not None:
+            merged[body_field] = locator_values[cli_arg]
+    return merged
+
+
+def resolve_path(operation: str, locator_values: dict) -> str:
+    """用定位参数填充 path 模板，如 /task/{task_id} -> /task/T1。"""
+    return OPERATION_SCHEMAS[operation]["path"].format(**locator_values)
+
+
 def get_client() -> httpx.Client:
     if not TOKEN:
         _fail("CONFIG_ERROR", "未设置环境变量 DIDA365_API_TOKEN",

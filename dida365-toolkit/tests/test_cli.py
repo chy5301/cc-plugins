@@ -91,3 +91,19 @@ def test_validate_body_rejects_bool_as_int():
     # 因为 Python 中 bool 是 int 的子类，若无专门守卫会被误判为合法 int。
     errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "priority": True})
     assert any("priority" in e for e in errs)
+
+
+def test_assemble_body_injects_project_for_create_task():
+    body = cli.assemble_body("create-task", {"project": "P1"}, {"title": "x"})
+    assert body == {"title": "x", "projectId": "P1"}
+
+
+def test_assemble_body_injects_id_and_project_for_update_task():
+    body = cli.assemble_body("update-task", {"task_id": "T1", "project": "P1"}, {"title": "x"})
+    assert body == {"title": "x", "id": "T1", "projectId": "P1"}
+
+
+def test_assemble_body_skips_none_locator_for_update_project():
+    # project_id 仅用于 path（映射为 _URL_ONLY/None），不应进入 body
+    body = cli.assemble_body("update-project", {"project_id": "P1"}, {"name": "n"})
+    assert body == {"name": "n"}
