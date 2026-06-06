@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import sys
+from typing import NoReturn
 
 import httpx
 
@@ -192,7 +193,7 @@ def get_client() -> httpx.Client:
     )
 
 
-def _fail(code: str, message: str, *, suggestion: str = "", exit_code: int = EXIT_ERROR) -> None:
+def _fail(code: str, message: str, *, suggestion: str = "", exit_code: int = EXIT_ERROR) -> NoReturn:
     """输出统一 JSON 错误信封并退出。"""
     envelope: dict = {
         "success": False,
@@ -299,8 +300,9 @@ def run_body_command(operation: str, args: argparse.Namespace, locator_values: d
     try:
         raw_body = load_body(getattr(args, "body", None))
     except (ValueError, json.JSONDecodeError) as exc:
+        example = '{"title":"任务标题"}'
         _fail("INVALID_JSON", f"--body 不是合法 JSON：{exc}",
-              suggestion='示例：--body \'{"title":"任务标题"}\'；字段定义见 `schema ' + operation + '`',
+              suggestion=f"示例：--body '{example}'；字段定义见 `schema {operation}`",
               exit_code=EXIT_USAGE)
     if not isinstance(raw_body, dict):
         _fail("INVALID_BODY", "--body 顶层应为 JSON 对象",
