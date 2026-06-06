@@ -84,3 +84,10 @@ def test_load_body_parses_json():
 
 def test_load_body_none_returns_empty():
     assert cli.load_body(None) == {}
+
+
+def test_validate_body_rejects_bool_as_int():
+    # priority 的 schema 类型为 int；传入 bool（True/False）应被拒绝，
+    # 因为 Python 中 bool 是 int 的子类，若无专门守卫会被误判为合法 int。
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "priority": True})
+    assert any("priority" in e for e in errs)
