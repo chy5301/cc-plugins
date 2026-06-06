@@ -210,3 +210,62 @@ def test_main_parser_epilog_mentions_schema():
     parser = cli.build_parser()
     assert "schema" in (parser.epilog or "")
     assert "--body" in (parser.epilog or "")
+
+
+# ── C1: reject empty update bodies ───────────────────────────────────────────
+
+
+def test_update_project_rejects_empty_body(monkeypatch):
+    import argparse, pytest
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(project_id="P1", body=None)
+    with pytest.raises(SystemExit) as e:
+        cli.run_body_command("update-project", args, {"project_id": "P1"})
+    assert e.value.code == cli.EXIT_USAGE
+
+
+def test_update_task_rejects_empty_body(monkeypatch):
+    import argparse, pytest
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(task_id="T1", project="P1", body=None)
+    with pytest.raises(SystemExit) as e:
+        cli.run_body_command("update-task", args, {"task_id": "T1", "project": "P1"})
+    assert e.value.code == cli.EXIT_USAGE
+
+
+def test_update_task_with_field_passes(monkeypatch):
+    import argparse
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(task_id="T1", project="P1", body='{"title":"x"}')
+    cli.run_body_command("update-task", args, {"task_id": "T1", "project": "P1"})
+    assert _FakeClient.last["json"] == {"title": "x", "id": "T1", "projectId": "P1"}
+
+
+def test_update_project_empty_string_body_rejected(monkeypatch):
+    import argparse, pytest
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(project_id="P1", body="")
+    with pytest.raises(SystemExit) as e:
+        cli.run_body_command("update-project", args, {"project_id": "P1"})
+    assert e.value.code == cli.EXIT_USAGE
+
+
+# ── C2: move-tasks validate each element has required keys ───────────────────
+
+
+def test_move_tasks_rejects_missing_required_field(monkeypatch):
+    import argparse, pytest
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(body='[{"fromProjectId":"A"}]')
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_move_tasks(args)
+    assert e.value.code == cli.EXIT_USAGE
+
+
+# ── C6: raw --method accept any case ─────────────────────────────────────────
+
+
+def test_raw_method_accepts_mixed_case():
+    parser = cli.build_parser()
+    args = parser.parse_args(["raw", "--method", "Post", "--path", "/task"])
+    assert args.method == "POST"

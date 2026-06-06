@@ -78,6 +78,7 @@ OPERATION_SCHEMAS = {
         "locators": {"task_id": "id", "project": "projectId"},
         "required": ["id", "projectId"],
         "fields": {**_TASK_FIELDS, "id": {"type": "str", "desc": "任务 ID"}},
+        "require_content": True,
     },
     "create-project": {
         "method": "POST", "path": "/project",
@@ -86,6 +87,7 @@ OPERATION_SCHEMAS = {
     "update-project": {
         "method": "POST", "path": "/project/{project_id}",
         "locators": {"project_id": _URL_ONLY}, "required": [], "fields": _PROJECT_FIELDS,
+        "require_content": True,
     },
     "filter-tasks": {
         "method": "POST", "path": "/task/filter",
@@ -169,7 +171,7 @@ def assemble_body(operation: str, locator_values: dict, body: dict) -> dict:
     """把定位参数按 locators 映射注入 body（_URL_ONLY/None 映射表示仅用于 path，不注入）。
     用户在 --body 显式给出的同名字段优先保留。"""
     merged = dict(body)
-    for cli_arg, body_field in OPERATION_SCHEMAS[operation]["locators"].items():
+    for cli_arg, body_field in OPERATION_SCHEMAS[operation].get("locators", {}).items():
         if body_field is None:
             continue
         if body_field not in merged and locator_values.get(cli_arg) is not None:
@@ -288,6 +290,13 @@ def run_body_command(operation: str, args: argparse.Namespace, locator_values: d
         _fail("BODY_VALIDATION_FAILED", "请求体校验未通过：" + "；".join(errors),
               suggestion=f"用 `schema {operation}` 查看合法字段；schema 外字段请用 raw 子命令",
               exit_code=EXIT_USAGE)
+    schema = OPERATION_SCHEMAS[operation]
+    if schema.get("require_content"):
+        injected = {f for f in schema.get("locators", {}).values() if f is not None}
+        if not (set(body) - injected):
+            _fail("INVALID_PARAMETER", "至少需要一个要更新的字段",
+                  suggestion=f"在 --body 中提供要修改的字段；字段定义见 `schema {operation}`",
+                  exit_code=EXIT_USAGE)
     path = resolve_path(operation, locator_values)
     with get_client() as c:
         output(handle_response(c.request(OPERATION_SCHEMAS[operation]["method"], path, json=body)))
@@ -329,6 +338,10 @@ def cmd_move_tasks(args: argparse.Namespace) -> None:
         if bad:
             _fail("INVALID_BODY", f"第 {i} 个元素含未知字段 {sorted(bad)}",
                   suggestion=f"允许字段：{sorted(allowed)}", exit_code=EXIT_USAGE)
+        missing = allowed - set(item)
+        if missing:
+            _fail("INVALID_BODY", f"第 {i} 个元素缺少必填字段 {sorted(missing)}",
+                  suggestion="每个元素需含 fromProjectId/toProjectId/taskId", exit_code=EXIT_USAGE)
     with get_client() as c:
         output(handle_response(c.request("POST", "/task/move", json=payload)))
 
@@ -463,9 +476,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── 通用透传 ──
     p = sub.add_parser("raw", help="通用透传：对任意 Open API 端点发任意请求体（schema 兜底逃生舱）")
-    p.add_argument("--method", required=True,
-                   choices=["get", "post", "delete", "put", "GET", "POST", "DELETE", "PUT"],
-                   help="HTTP 方法")
+    p.add_argument("--method", required=True, type=str.upper,
+                   choices=["GET", "POST", "DELETE", "PUT"], help="HTTP 方法（大小写不限）")
     p.add_argument("--path", required=True, help="API 路径（/open/v1 之后部分），如 /task/<id>")
     p.add_argument("--body", help="请求体 JSON（GET/DELETE 可省略）")
 
