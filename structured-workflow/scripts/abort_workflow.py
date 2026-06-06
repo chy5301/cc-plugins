@@ -125,11 +125,11 @@ def archive_mode(project_root: Path, config: dict, label: str) -> None:
         print(f"  ✓ 归档并移除: {workflow_path.relative_to(project_root)}")
 
     print()
-    print(f"归档完成！")
+    print("归档完成！")
     print(f"  归档目录: {archive_dir.relative_to(project_root)}")
     print(f"  移动文件: {moved_count} 个")
     print(f"  跳过文件: {skipped_count} 个")
-    print(f"  workflow.json: 已归档并移除")
+    print("  workflow.json: 已归档并移除")
 
 
 def delete_mode(project_root: Path, config: dict) -> None:
@@ -165,10 +165,10 @@ def delete_mode(project_root: Path, config: dict) -> None:
         print(f"  ✓ 删除: {workflow_path.relative_to(project_root)}")
 
     print()
-    print(f"删除完成！")
+    print("删除完成！")
     print(f"  删除文件: {deleted_count} 个")
     print(f"  跳过文件: {skipped_count} 个")
-    print(f"  workflow.json: 已删除")
+    print("  workflow.json: 已删除")
 
 
 def main() -> None:
@@ -184,7 +184,7 @@ def main() -> None:
     if not workflow_path.exists():
         workflow_path = project_root / ".claude" / "workflow.json"
     if not workflow_path.exists():
-        print(f"错误: workflow.json 不存在", file=sys.stderr)
+        print("错误: workflow.json 不存在", file=sys.stderr)
         print("提示: 可能项目尚未初始化，或已经归档/终止过了")
         sys.exit(1)
 

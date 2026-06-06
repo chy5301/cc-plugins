@@ -123,7 +123,7 @@ Agent 是主要用户吗？
 - [ ] 命令命名遵循 `<工具> <资源> <操作>` 模式
 - [ ] CLI 入口点进行输入验证（路径规范化、schema 校验、拒绝危险字符）
 - [ ] 错误响应包含错误码（机器可读）+ 错误描述 + 恢复建议
-- [ ] 退出码遵循语义化约定（0=成功, 1=一般错误, 2=用法/参数错误, 3=资源不存在, 4=权限不足, 10=dry-run 预览）
+- [ ] 退出码语义化，基于基线约定（0=成功, 1=一般错误, 2=用法/参数错误, 3=资源不存在, 4=权限不足, 10=dry-run 预览），可按需扩展
 - [ ] 破坏性操作支持 `--dry-run`
 - [ ] `--no-interactive` 模式：禁用交互式提示、pager 和确认对话框（教训：AWS CLI v2 在 2019 年将默认 pager 改为 `less`，导致全球数千个 CI 管道挂起——Agent 无法回答 `Are you sure? [y/N]`）
 - [ ] 支持 `--fields` 输出字段掩码（保护上下文窗口）
@@ -142,17 +142,23 @@ Agent 安全存在根本性张力：Agent 必须读取外部数据才能工作�
 
 ## 参考文件
 
-需要深入指导时查阅：
+> **协议规范 vs 实现示例**：本指南只规定少量"协议"（信封形状 `{success, data, metadata, error}`、error 必含 `code/message/恢复建议`、**退出码必须语义化**这一原则）。
+> 退出码的具体码值（0=成功, 1=一般错误, 2=用法/参数错误, 3=资源不存在, 4=权限不足, 10=dry-run 预览）是**基线约定**，可按领域需要扩展（如某 CLI 需要"结果歧义需消歧"语义可加 5）。
+> references 中的字段命名、examples 中的 metadata 字段、error.code 枚举等**具体值**均为**实现选择**，不是协议规约——可按场景自由调整（如新增 `took_ms`、`result_count` 等是合规的）。
 
-### 参考文档
+### 协议与原则（references/）
 
-- **`${CLAUDE_PLUGIN_ROOT}/references/design-principles.md`** —— 十原则体系完整定义，包含设计理由、正面示例、边界条件、反模式清单和适用光谱。在做设计权衡决策或需要了解原则边界条件时阅读。
-- **`${CLAUDE_PLUGIN_ROOT}/references/architecture-patterns.md`** —— 三层架构定义、协议选择矩阵（CLI+Skill vs MCP vs A2A vs OpenAPI）、按复杂度分级的架构方案（简单/中等/复杂）、展示层演进路线 P0-P3。在为新工具选择架构或评估协议方案时阅读。
+- **`${CLAUDE_PLUGIN_ROOT}/references/design-principles.md`** —— 十原则完整定义、设计理由、边界条件、反模式清单。
+  **何时读**：评估某条原则是否适用、原则间发生冲突需取舍、需要向用户解释"为什么这样设计"时。
+- **`${CLAUDE_PLUGIN_ROOT}/references/architecture-patterns.md`** —— 三层架构定义、协议选择矩阵（CLI+Skill / MCP / A2A / OpenAPI）、按复杂度分级的架构方案、展示层演进路线 P0-P3。
+  **何时读**：为新工具选型协议、判断是否引入 MCP、设计展示层路线、面对"复杂/简单"边界判断时。
 
-### 示例代码
+### 参考实现（examples/）
 
-- **`${CLAUDE_PLUGIN_ROOT}/examples/cli-json-output.py`** —— 可运行的 Python 示例，演示标准 JSON 信封、`--fields` 字段掩码、`--quiet` 模式和退出码约定。运行：`uv run python ${CLAUDE_PLUGIN_ROOT}/examples/cli-json-output.py list --json`。
-- **`${CLAUDE_PLUGIN_ROOT}/examples/cli-help-design.py`** —— 可运行的 Python 示例，演示双模 `--help`（人类文本 / Agent JSON）和 `schema` 子命令的机器可读 JSON Schema 自省。运行：`uv run python ${CLAUDE_PLUGIN_ROOT}/examples/cli-help-design.py --help`。
+- **`${CLAUDE_PLUGIN_ROOT}/examples/cli-json-output.py`** —— 标准 JSON 信封、`--fields`、`--quiet`、退出码的最小可运行实现。文件 docstring 标注了"规范边界"（哪些字段是协议、哪些是实现选择）。
+  **何时读**：自己写 `--json` 实现时找一个对照样本；引用前先看顶部 callout 区分规范与示例。
+- **`${CLAUDE_PLUGIN_ROOT}/examples/cli-help-design.py`** —— 双模 `--help`（人类 / `--help --json`）和 `schema` 子命令的可运行示例。
+  **何时读**：实现可发现性（P1）相关能力时找一个对照样本。
 
 ## Gotchas
 

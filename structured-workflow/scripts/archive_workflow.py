@@ -55,7 +55,7 @@ def main() -> None:
     if not workflow_path.exists():
         workflow_path = project_root / ".claude" / "workflow.json"
     if not workflow_path.exists():
-        print(f"错误: workflow.json 不存在", file=sys.stderr)
+        print("错误: workflow.json 不存在", file=sys.stderr)
         print("提示: 可能项目尚未初始化，或已经归档过了")
         sys.exit(1)
 
@@ -116,6 +116,14 @@ def main() -> None:
         print(f"  ✓ 移动: {summary_path.relative_to(project_root)} → {dst.relative_to(project_root)}")
         moved_count += 1
 
+    # 移动 brainstorm/ 目录（如果存在）
+    brainstorm_dir = project_root / "docs" / "workflow" / "brainstorm"
+    if brainstorm_dir.is_dir():
+        dst = archive_dir / "brainstorm"
+        shutil.move(str(brainstorm_dir), str(dst))
+        print(f"  ✓ 移动: {brainstorm_dir.relative_to(project_root)}/ → {dst.relative_to(project_root)}/")
+        moved_count += 1
+
     # 将 workflow.json 也复制一份到归档目录（作为记录），然后删除原件
     workflow_dst = archive_dir / "workflow.json"
     shutil.copy2(str(workflow_path), str(workflow_dst))
@@ -124,11 +132,11 @@ def main() -> None:
 
     # 输出摘要
     print()
-    print(f"归档完成！")
+    print("归档完成！")
     print(f"  归档目录: {archive_dir.relative_to(project_root)}")
     print(f"  移动文件: {moved_count} 个")
     print(f"  跳过文件: {skipped_count} 个")
-    print(f"  workflow.json: 已归档并移除")
+    print("  workflow.json: 已归档并移除")
     print()
     print("项目已恢复干净状态，可以开展下一轮大型任务。")
 

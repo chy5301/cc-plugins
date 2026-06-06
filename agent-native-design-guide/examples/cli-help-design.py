@@ -7,6 +7,11 @@
 - schema 子命令（JSON Schema 自省）
 - 双模帮助（人类文本 + Agent JSON）
 
+规范边界:
+  本示例仅对以下两项是规范性的: --help 必须支持人类可读 / 机器可读双模 (P1 可发现性)、
+  schema 输出必须是有效 JSON Schema。COMMAND_SCHEMAS 的具体字段、参数命名、分组方式
+  均为实现选择, 可按工具实际命令调整。
+
 运行方式：
   uv run python cli-help-design.py --help
   uv run python cli-help-design.py --help --json

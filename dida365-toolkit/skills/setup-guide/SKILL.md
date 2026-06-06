@@ -76,7 +76,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py list-projects
 ### Step 4: 确认完成
 
 向用户确认配置成功，并介绍可用的功能：
-- 任务管理：创建、更新、完成、删除任务
-- 项目管理：创建、查看、更新、删除项目
-- 高级查询：按优先级、标签、日期、状态筛选任务
-- 每日回顾：查看今日待办和任务概览
+- 任务管理：创建、更新、完成、放弃、删除任务（task-crud / task-complete）
+- 任务整理：在项目间移动任务（task-organize）
+- 项目管理：创建、查看、更新、删除项目（project-management）
+- 高级查询：按优先级、标签、日期、状态筛选任务（task-query）
+- 每日回顾：查看今日待办和任务概览（daily-review）
+
+> CLI 通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。

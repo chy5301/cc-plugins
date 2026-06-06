@@ -13,3 +13,6 @@ Thumbs.db
 
 # Playwright MCP
 .playwright-mcp/
+
+# 本地工作流文档（spec / plan）
+docs/

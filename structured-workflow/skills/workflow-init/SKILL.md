@@ -29,7 +29,9 @@ tools: Bash, Read, Write, Edit, Glob, Grep
 
 ## 执行流程
 
-### 步骤 1：前置检查 + 初始化
+### 步骤 1：前置检查 + 分支决策 + 初始化
+
+#### 1a. 前置检查与任务描述加载
 
 1. 检查 `docs/workflow/workflow.json` 是否已存在：
    - **已存在** → 告知用户当前已有工作流配置，询问：
@@ -37,10 +39,67 @@ tools: Bash, Read, Write, Edit, Glob, Grep
      - **取消**：终止本次初始化
    - 用户确认覆盖后继续，否则终止
    - **不存在** → 直接继续
-2. 运行初始化脚本：`uv run "${CLAUDE_PLUGIN_ROOT}/scripts/init_project.py" --path <PROJECT_ROOT> --force`
-3. 检测 `docs/workflow/brainstorm/` 下是否有决策文档：
-   - **有** → 读取最新的一份（按文件名日期排序），作为分析的输入上下文
+2. 检测 `docs/workflow/brainstorm/` 下是否有决策文档：
+   - **有** → 读取最新的一份（按文件名日期排序），作为后续分析与 type 推断的输入上下文
    - **无** → 如果 `$ARGUMENTS` 非空，以此为任务描述；如果也为空，请求用户描述任务的背景和目标
+
+#### 1b. 分支策略询问
+
+先根据任务描述/brainstorm 决策文档**推断**一个 `taskName` slug（3-5 个英文单词，短横线分隔，如 `extract-auth-module`），并通过 `git branch --show-current` 读取当前分支名。
+
+使用 `AskUserQuestion` 单选询问用户的分支策略：
+
+- **"新建 `<推断 type>/<taskName>` 工作分支"**（推荐）—— 默认选项，下游 skill 可基于此字段管理分支
+- **"继续使用当前分支 `<current-branch>`"** —— 不切换、不新建，仅将当前分支名写入 `workflowBranch`
+- **"不启用分支管理"** —— `workflowBranch` 留空，下游 skill 将走 fallback 询问路径
+
+#### 1c. Type 询问（仅 1b 选"新建"）
+
+使用 `AskUserQuestion` 单选询问 type 前缀。结合任务描述与 brainstorm 决策文档推断一个**默认值**作为第一个选项（标注"推荐"），剩余选项按以下顺序列出：
+
+- `feature` / `fix` / `refactor` / `chore` / `docs`
+
+最终分支名为 `<type>/<taskName>`。
+
+#### 1d. Git 操作（仅 1b 选"新建"）
+
+根据当前分支状态执行：
+
+- 当前已在 `<type>/<taskName>` 上 → 不切换，仅记录
+- 当前在 `main` 或 `master` 上 → `git checkout -b <type>/<taskName>`
+- 当前在其他分支上 → 使用 `AskUserQuestion` 询问"从当前分支分出"还是"从 `main` 分出"：
+  - 选"从当前分支分出" → `git checkout -b <type>/<taskName>`
+  - 选"从 `main` 分出" → `git checkout main` 后 `git checkout -b <type>/<taskName>`
+
+**异常处理**：如果工作区有未提交的修改导致 `git checkout` 失败，向用户报告并暂停，等待用户清理后再继续；不强行 `--force`。
+
+#### 1e. 运行初始化脚本
+
+根据 1b/1c/1d 的结果，组合参数调用 `init_project.py`：
+
+| 1b 选择 | 传参 |
+| --- | --- |
+| 新建 `<type>/<taskName>` | `--workflow-branch <type>/<taskName> --workflow-type <type>` |
+| 继续使用当前分支 `<current>` | `--workflow-branch <current>`（不传 `--workflow-type`） |
+| 不启用分支管理 | 两个参数都不传 |
+
+命令模板：
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/scripts/init_project.py" \
+  --path <PROJECT_ROOT> \
+  [--workflow-branch <branch>] \
+  [--workflow-type <type>] \
+  --force
+```
+
+#### 1f. 分支决策结果汇报
+
+向用户一行总结本次分支决策，例如：
+
+- "✓ 工作分支：`feature/extract-auth-module`（已创建并切换）"
+- "✓ 工作分支：`feature/extract-auth-module`（已在该分支）"
+- "✓ 沿用当前分支：`some-existing-branch`"
+- "⚠ 未启用分支管理（后续 commit 将落在当前分支）"
 
 ### 步骤 2：子代理并行探索
 
