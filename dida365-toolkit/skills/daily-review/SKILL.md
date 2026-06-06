@@ -20,7 +20,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> **字段说明**：filter-tasks/query-completed 的条件经 `--body` JSON 传入；完整字段用 `schema <操作>` 查询；schema 外字段用 `raw`。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。条件经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 执行流程
 
@@ -46,10 +46,15 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data inbox
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --body '{"startDate":"2026-04-04T00:00:00+0800","endDate":"2026-04-04T23:59:59+0800","status":[0]}'
+  --body '{"startDate":"2026-04-04","endDate":"2026-04-04T23:59:59+0800","status":[0]}' \
+  --fields id,title,projectId,priority,dueDate
 ```
 
 > **注意**：`filter-tasks` 的日期参数基于任务的 `startDate` 字段，而非 `dueDate`。
+
+> 日期参数支持简短 `YYYY-MM-DD`（CLI 自动补 `T00:00:00+0800`）；查询当天范围时上限仍建议用完整时间戳以包含全天。
+
+> 附加 `--fields` 显著降低返回 JSON 体积，加速 Agent 解析。
 
 ### Step 4: 查找逾期任务
 
@@ -65,7 +70,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --body '{"endDate":"2026-04-03T23:59:59+0800","status":[0]}'
+  --body '{"endDate":"2026-04-03T23:59:59+0800","status":[0]}' \
+  --fields id,title,projectId,dueDate,priority
 ```
 
 ### Step 5: 筛选高优先级任务

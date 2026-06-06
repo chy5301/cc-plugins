@@ -20,7 +20,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> **字段说明**：有请求体的命令字段统一经 `--body` JSON 传入；完整字段用 `schema <操作>` 查询；schema 外字段用 `raw`。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。字段经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 操作说明
 

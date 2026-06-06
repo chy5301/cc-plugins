@@ -20,7 +20,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> **字段说明**：filter-tasks/query-completed 的条件经 `--body` JSON 传入；完整字段用 `schema <操作>` 查询；schema 外字段用 `raw`。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。条件经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 筛选未完成/全部任务
 
@@ -41,6 +41,15 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 | `status` | 状态。0=未完成, 2=已完成 | `[0]` |
 
 所有字段都是可选的，可自由组合。
+
+### 节省上下文
+
+返回结果字段较多时，附加 `--fields` 裁剪输出，显著降低 JSON 体积：
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
+  --body '{"priority":[5]}' --fields id,title,dueDate,priority
+```
 
 ### 常见查询场景
 
@@ -74,8 +83,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 如果用户只需要粗略的逾期检测（任务开始日期已过），可以用：
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --body '{"endDate":"昨天T23:59:59+0800","status":[0]}'
+  --body '{"endDate":"2026-05-10T23:59:59+0800","status":[0]}'
 ```
+
+> 将日期替换为当前日期前一天的实际日期（如 `2026-05-10`）。`"昨天"` 不是合法的 ISO 8601 字符串，必须先解析为具体日期。
 
 > 更全面的每日回顾请使用 daily-review skill。
 
@@ -101,6 +112,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py query-completed \
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py query-completed \
   --body '{"projectIds":["<项目ID>"]}'
 ```
+
+**日期格式**：`startDate`/`endDate` 同时支持简短 `YYYY-MM-DD`（CLI 自动补 `T00:00:00+0800`）和完整 ISO 8601。
 
 ## 结果展示建议
 

@@ -20,7 +20,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> **字段说明**：有请求体的命令字段统一经 `--body` JSON 传入；完整字段用 `schema <操作>` 查询；schema 外字段用 `raw`。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。字段经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 步骤
 
@@ -56,7 +56,19 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
 
 每个任务对应数组中的一个对象，支持一次移动多个任务。
 
-### Step 4: 确认结果
+### Step 3.5: 预演（推荐）
+
+移动操作不可逆，建议先用 `--dry-run` 预演确认：
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
+  --body '[{"fromProjectId":"<源项目ID>","toProjectId":"<目标项目ID>","taskId":"<任务ID>"}]' \
+  --dry-run
+```
+
+预演返回 `data.would_call`（API 路径）和 `data.body`（请求体），确认无误后再去掉 `--dry-run` 正式执行。退出码 10 表示预演成功。
+
+### Step 5: 确认结果
 
 成功后返回包含任务 ID 和新 etag 的数组。向用户确认移动完成。
 

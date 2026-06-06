@@ -1,7 +1,7 @@
 ---
 name: task-crud
 description: |
-  创建、查看、更新、删除滴答清单任务。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""create task""update task""delete task""add todo""在滴答清单里加一个..."时使用。
+  创建、查看、更新、删除、放弃滴答清单任务。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""放弃任务""不做了""取消任务""create task""update task""delete task""abandon task""add todo""在滴答清单里加一个..."时使用。
 version: 0.2.0
 tools: Bash
 ---
@@ -22,7 +22,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> **字段说明**：有请求体的命令（create-task/update-task）字段统一经 `--body` JSON 传入。构造前用 `schema <操作>` 查询完整字段；schema 未收录的字段用 `raw` 子命令。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。字段经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 操作说明
 
@@ -60,13 +60,17 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
 **必需**：位置参数 `task_id`、`--project`。只在 `--body` 中传要修改的字段。
 **字段定义**：`schema update-task`。
 
+**状态说明**：`status` 取值 0=未完成、1=放弃、2=已完成。放弃任务用 `"status":1`；完成任务推荐用专门的 `complete-task` 子命令。
+
+**日期格式**：`--body` 中的日期字段同时支持简短 `YYYY-MM-DD`（CLI 自动补 `T00:00:00+0800`）和完整 ISO 8601（如 `2026-04-05T14:30:00+0800`）。
+
 ### 删除任务
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py delete-task <项目ID> <任务ID>
 ```
 
-> **注意**：删除操作不可逆，执行前应向用户确认。
+> **注意**：删除操作不可逆，执行前应向用户确认。建议先附加 `--dry-run` 验证将要删除的资源路径（退出码 10），确认无误后再正式执行。
 
 ## 辅助操作
 
