@@ -164,3 +164,24 @@ def test_update_project_path_locator_not_in_body(monkeypatch):
     cli.run_body_command("update-project", args, {"project_id": "P9"})
     assert _FakeClient.last["path"] == "/project/P9"
     assert _FakeClient.last["json"] == {"name": "改名"}
+
+
+def test_move_tasks_array_body(monkeypatch):
+    import argparse
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    payload = '[{"fromProjectId":"A","toProjectId":"B","taskId":"T1"}]'
+    args = argparse.Namespace(body=payload)
+    cli.cmd_move_tasks(args)
+    assert _FakeClient.last["path"] == "/task/move"
+    assert _FakeClient.last["json"] == [
+        {"fromProjectId": "A", "toProjectId": "B", "taskId": "T1"}
+    ]
+
+
+def test_move_tasks_rejects_non_array(monkeypatch):
+    import argparse, pytest
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(body='{"taskId":"T1"}')
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_move_tasks(args)
+    assert e.value.code == cli.EXIT_USAGE

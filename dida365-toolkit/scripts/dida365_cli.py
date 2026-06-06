@@ -311,13 +311,25 @@ def cmd_delete_task(args: argparse.Namespace) -> None:
 
 
 def cmd_move_tasks(args: argparse.Namespace) -> None:
-    task_ids = args.tasks.split(",")
-    payload = [
-        {"fromProjectId": args.from_project, "toProjectId": args.to_project, "taskId": tid}
-        for tid in task_ids
-    ]
+    try:
+        payload = load_body(args.body)
+    except (ValueError, json.JSONDecodeError) as exc:
+        _fail("INVALID_JSON", f"--body 不是合法 JSON：{exc}",
+              suggestion='示例：--body \'[{"fromProjectId":"A","toProjectId":"B","taskId":"T1"}]\'',
+              exit_code=EXIT_USAGE)
+    if not isinstance(payload, list) or not payload:
+        _fail("INVALID_BODY", "move-tasks 的 --body 应为非空 JSON 数组",
+              suggestion="每个元素需含 fromProjectId/toProjectId/taskId", exit_code=EXIT_USAGE)
+    allowed = set(OPERATION_SCHEMAS["move-tasks"]["fields"])
+    for i, item in enumerate(payload):
+        if not isinstance(item, dict):
+            _fail("INVALID_BODY", f"第 {i} 个元素应为对象", exit_code=EXIT_USAGE)
+        bad = set(item) - allowed
+        if bad:
+            _fail("INVALID_BODY", f"第 {i} 个元素含未知字段 {sorted(bad)}",
+                  suggestion=f"允许字段：{sorted(allowed)}", exit_code=EXIT_USAGE)
     with get_client() as c:
-        output(handle_response(c.post("/task/move", json=payload)))
+        output(handle_response(c.request("POST", "/task/move", json=payload)))
 
 
 # ── 查询操作 ──────────────────────────────────────────────────────────────────
@@ -399,10 +411,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("project_id", help="项目 ID")
     p.add_argument("task_id", help="任务 ID")
 
-    p = sub.add_parser("move-tasks", help="移动任务到其他项目")
-    p.add_argument("--from", dest="from_project", required=True, help="源项目 ID")
-    p.add_argument("--to", dest="to_project", required=True, help="目标项目 ID")
-    p.add_argument("--tasks", required=True, help="任务 ID，逗号分隔")
+    p = sub.add_parser("move-tasks", help="移动任务到其他项目（--body 为 JSON 数组，见 `schema move-tasks`）")
+    p.add_argument("--body", required=True,
+                   help='JSON 数组，如 \'[{"fromProjectId":"A","toProjectId":"B","taskId":"T1"}]\'')
 
     # ── 查询 ──
     p = sub.add_parser("filter-tasks", help="按条件筛选任务（条件经 --body，见 `schema filter-tasks`）")
