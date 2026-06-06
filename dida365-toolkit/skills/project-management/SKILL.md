@@ -2,7 +2,7 @@
 name: project-management
 description: |
   管理滴答清单项目（清单）。当用户提到"创建项目""新建清单""查看所有项目""修改项目""删除项目""重命名项目""list projects""create project""rename project""project management""我有哪些清单""看看我的项目"时使用。
-version: 0.1.0
+version: 0.2.0
 tools: Bash
 ---
 
@@ -20,7 +20,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。字段经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 操作说明
 
@@ -50,14 +50,16 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data <项目ID>
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py create-project \
-  --name "项目名称" \
-  [--color "#F18181"] \
-  [--view-mode list|kanban|timeline] \
-  [--kind TASK|NOTE] \
-  [--sort-order 0]
+  --body '{"name":"项目名称","color":"#F18181","viewMode":"list"}'
 ```
 
-**必需参数**：`--name`。
+**必需字段**：`name`。
+
+**可选字段**：
+- `color`：颜色（十六进制，如 `#F18181`）
+- `viewMode`：视图模式（`list` / `kanban` / `timeline`，默认 `list`）
+- `kind`：项目类型（`TASK` / `NOTE`，默认 `TASK`）
+- `sortOrder`：排序权重（整数）
 
 **视图模式说明**：
 - `list`：列表视图（默认）
@@ -72,13 +74,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py create-project \
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-project <项目ID> \
-  [--name "新名称"] \
-  [--color "#FFD700"] \
-  [--view-mode kanban] \
-  [--kind TASK|NOTE]
+  --body '{"name":"新名称"}'
 ```
 
-只需传入要修改的字段。
+`<项目ID>` 为 URL 路径参数，只需在 `--body` 中传入要修改的字段。可用字段同创建项目（`name`、`color`、`viewMode`、`kind`、`sortOrder`）。
 
 ### 删除项目
 

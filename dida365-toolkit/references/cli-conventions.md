@@ -41,7 +41,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 uv run ... list-projects --fields id,name
 
 # 任务筛选只取关键字段
-uv run ... filter-tasks --priority 5 --fields id,title,dueDate,priority
+uv run ... filter-tasks --body '{"priority":[5]}' --fields id,title,dueDate,priority
 ```
 
 未知字段会被静默丢弃；空字段串等同于不裁剪。
@@ -125,22 +125,23 @@ uv run ... filter-tasks --priority 5 --fields id,title,dueDate,priority
 ## Schema 自省
 
 ```bash
-# 列出所有子命令的参数 schema
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py schema
+# 列出所有有请求体操作的字段 schema
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py schema --all
 
-# 查看单个子命令的 schema
+# 查看单个操作的字段 schema
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py schema create-task
 ```
 
-输出每个参数的 `name` / `dest` / `required` / `type` / `choices` / `default` / `help`。Agent 在不解析文本 `--help` 的情况下也可获取参数定义。
+输出该操作 `--body` JSON 支持的全部字段：`type`（str/int/bool/array）/ `desc` / `required`（从 `--project` 等定位参数注入）/ `enum`（如 priority 的 [0,1,3,5]）/ `items`（数组元素类型）。
 
-`type` 字段取值：`string` / `int` / `flag`（`--all-day` 等）/ `tristate-flag`（`--all-day / --no-all-day / 默认未指定`，仅 `update-task` 用）。
+schema 未收录的字段可用 `raw` 子命令透传。
 
 ---
 
 ## 跨子命令的行为约定
 
-- **逗号分隔参数**（如 `--tags`、`--projects`、`--tasks`、`--priority`、`--status`）：自动 `trim` 元素空白并丢弃空项。形如 `"3, 5,"` 与 `"3,5"` 等价。
-- **日期参数**（`--due-date`、`--start-date`、`--end-date`）：同时支持简短 `YYYY-MM-DD`（CLI 自动补 `T00:00:00+0800`）和完整 ISO 8601（如 `2026-04-05T14:30:00+0800`）。需要小时/分钟粒度时使用后者。
+- **字段透传**：有请求体的命令（create-task/update-task/create-project/update-project/filter-tasks/query-completed/move-tasks）字段统一经 `--body` JSON 传入（API 原生 camelCase 字段名）。构造前用 `schema <操作>` 查询完整字段定义。
+- **日期格式**：`--body` JSON 中的日期字段同时支持简短 `YYYY-MM-DD`（CLI 自动补 `T00:00:00+0800`）和完整 ISO 8601（如 `2026-04-05T14:30:00+0800`）。需要小时/分钟粒度时使用后者。
+- **数组字段**：如 `tags`、`reminders`、`priority`、`status`、`projectIds` 等在 JSON 中以数组形式传入，如 `"tags":["工作","紧急"]`。
 - **无交互**：CLI 始终无交互式提示、pager 或确认对话框，Agent 可安全在非交互环境下调用。
 - **删除/移动不可逆**：API 层面没有"撤销"接口，破坏性操作前先用 `--dry-run` 预演。

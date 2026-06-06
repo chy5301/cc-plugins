@@ -69,4 +69,4 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py complete-task <项目ID> <�
 ## 注意事项
 
 - 完成操作不可逆（无法通过 API 将已完成任务恢复为未完成）
-- 任务完成后，可通过 `query-completed` 命令查询已完成任务
+- 任务完成后，可通过 `query-completed` 命令查询已完成任务（query-completed 的调用见 task-query skill，查询条件经 `--body` JSON 传入）

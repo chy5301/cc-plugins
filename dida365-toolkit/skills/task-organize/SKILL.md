@@ -2,7 +2,7 @@
 name: task-organize
 description: |
   在滴答清单项目间移动和整理任务。当用户提到"移动任务""把任务从...移到...""整理任务""归类""转移""换个清单""move task""reorganize tasks""任务搬到另一个清单"时使用。
-version: 0.1.0
+version: 0.2.0
 tools: Bash
 ---
 
@@ -20,7 +20,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。字段经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 步骤
 
@@ -47,28 +47,26 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data <源项目I
 
 从返回的任务列表中找到要移动的任务 ID。
 
-### Step 3: 预演（推荐）
-
-批量移动是破坏性操作，建议先附加 `--dry-run` 让 CLI 输出将要发送的请求体，确认任务列表与方向无误：
+### Step 3: 执行移动
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
-  --from <源项目ID> --to <目标项目ID> --tasks <任务ID1,任务ID2,...> \
+  --body '[{"fromProjectId":"<源项目ID>","toProjectId":"<目标项目ID>","taskId":"<任务ID1>"},{"fromProjectId":"<源项目ID>","toProjectId":"<目标项目ID>","taskId":"<任务ID2>"}]'
+```
+
+每个任务对应数组中的一个对象，支持一次移动多个任务。
+
+### Step 3.5: 预演（推荐）
+
+移动操作不可逆，建议先用 `--dry-run` 预演确认：
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
+  --body '[{"fromProjectId":"<源项目ID>","toProjectId":"<目标项目ID>","taskId":"<任务ID>"}]' \
   --dry-run
 ```
 
-`--dry-run` 退出码为 10，输出包含 `data.would_call` 和 `data.body`。
-
-### Step 4: 执行移动
-
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
-  --from <源项目ID> \
-  --to <目标项目ID> \
-  --tasks <任务ID1,任务ID2,...>
-```
-
-支持一次移动多个任务，任务 ID 用逗号分隔（自动 trim 空白）。
+预演返回 `data.would_call`（API 路径）和 `data.body`（请求体），确认无误后再去掉 `--dry-run` 正式执行。退出码 10 表示预演成功。
 
 ### Step 5: 确认结果
 

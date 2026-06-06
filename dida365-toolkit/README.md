@@ -12,6 +12,29 @@ Skill (Markdown 指令) → Bash: uv run dida365_cli.py <command> → 滴答清�
 
 兼容 Claude Code（plugin 形式）和其他 AI Agent（skill 形式）。
 
+## 0.2.0 调用方式变更（破坏性）
+
+自 0.2.0 起，有请求体的命令（create-task/update-task/create-project/update-project/
+filter-tasks/query-completed/move-tasks）的字段不再用独立 flag，统一经 `--body` JSON 传入。
+
+| 旧（≤0.1.0） | 新（≥0.2.0） |
+|---|---|
+| `create-task --project P --title 买菜 --priority 3` | `create-task --project P --body '{"title":"买菜","priority":3}'` |
+| `filter-tasks --priority 3,5 --status 0` | `filter-tasks --body '{"priority":[3,5],"status":[0]}'` |
+| `move-tasks --from A --to B --tasks T1` | `move-tasks --body '[{"fromProjectId":"A","toProjectId":"B","taskId":"T1"}]'` |
+
+- 字段定义：`schema <操作>`（如 `schema create-task`）。
+- schema 未收录的字段/端点：`raw --method --path --body` 透传。
+
+### 完备性与边界
+
+- CLI 子命令是高频操作的语义入口；**任何 Open API 能做的操作都可经 `--body` 或 `raw` 完成，CLI 不限制能力**。
+- 能力上限是滴答清单 **Open API**，它只是 app 的子集。以下 app 功能 **Open API 未暴露、agent 无法做到**：标签的独立增删改、习惯打卡、番茄钟、智能清单、子任务的精细排序等。
+
+### skill version 说明
+
+各 SKILL.md 的 `version` 是该 skill 自身的迭代标识，**与 plugin 发布版本解耦**，不要求逐一对齐 plugin 版本。
+
 ## 安装
 
 参见 [仓库 README](../README.md#安装)。
@@ -43,28 +66,28 @@ claude --plugin-dir ./dida365-toolkit
 
 ## CLI 脚本
 
-`scripts/dida365_cli.py` 提供 14 个子命令，覆盖滴答清单 Open API 全部 13 个端点：
+`scripts/dida365_cli.py` 提供 16 个子命令（14 个 API 操作命令，外加 schema 自省与 raw 透传），覆盖滴答清单 Open API 全部 13 个端点：
 
 ```bash
 # 项目操作
 uv run scripts/dida365_cli.py list-projects
 uv run scripts/dida365_cli.py get-project <projectId>
 uv run scripts/dida365_cli.py get-project-data <projectId>
-uv run scripts/dida365_cli.py create-project --name "名称"
-uv run scripts/dida365_cli.py update-project <projectId> --name "新名称"
+uv run scripts/dida365_cli.py create-project --body '{"name":"名称"}'
+uv run scripts/dida365_cli.py update-project <projectId> --body '{"name":"新名称"}'
 uv run scripts/dida365_cli.py delete-project <projectId>
 
 # 任务操作
 uv run scripts/dida365_cli.py get-task <projectId> <taskId>
-uv run scripts/dida365_cli.py create-task --project <projectId> --title "标题"
-uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --title "新标题"
+uv run scripts/dida365_cli.py create-task --project <projectId> --body '{"title":"标题"}'
+uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --body '{"title":"新标题"}'
 uv run scripts/dida365_cli.py complete-task <projectId> <taskId>
 uv run scripts/dida365_cli.py delete-task <projectId> <taskId>
-uv run scripts/dida365_cli.py move-tasks --from <fromId> --to <toId> --tasks <taskId1,taskId2>
+uv run scripts/dida365_cli.py move-tasks --body '[{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId1>"},{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId2>"}]'
 
-# 查询操作
-uv run scripts/dida365_cli.py filter-tasks --priority 3,5 --status 0
-uv run scripts/dida365_cli.py query-completed --start-date "2026-04-01T00:00:00+0800"
+# 查询操作（字段定义见 `schema <操作>`；schema 外字段用 `raw`）
+uv run scripts/dida365_cli.py filter-tasks --body '{"priority":[3,5],"status":[0]}'
+uv run scripts/dida365_cli.py query-completed --body '{"startDate":"2026-04-01T00:00:00+0800"}'
 ```
 
 ## 依赖

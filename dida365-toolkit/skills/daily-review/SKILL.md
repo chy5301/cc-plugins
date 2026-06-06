@@ -2,7 +2,7 @@
 name: daily-review
 description: |
   每日任务回顾与规划。当用户提到"今日待办""每日回顾""daily review""今天有什么任务""任务概览""task overview""what's on my plate""看看今天要做什么""有什么逾期的吗"时使用。
-version: 0.1.0
+version: 0.2.0
 tools: Bash
 ---
 
@@ -20,7 +20,7 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
-> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省、日期格式归一化）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。
+> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。条件经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
 
 ## 执行流程
 
@@ -42,19 +42,19 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data inbox
 
 ### Step 3: 筛选今日任务
 
-使用当天日期范围筛选任务。将日期替换为实际的当前日期（如 `2026-04-04`）。日期参数支持简短 `YYYY-MM-DD`，下限自动补 `T00:00:00+0800`；查询当天范围时上限仍建议用完整时间戳以包含全天：
+使用当天日期范围筛选任务。将日期替换为实际的当前日期（如 `2026-04-04`）：
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --start-date "2026-04-04" \
-  --end-date "2026-04-04T23:59:59+0800" \
-  --status 0 \
+  --body '{"startDate":"2026-04-04","endDate":"2026-04-04T23:59:59+0800","status":[0]}' \
   --fields id,title,projectId,priority,dueDate
 ```
 
-> 附加 `--fields` 显著降低返回 JSON 体积，加速 Agent 解析。
-
 > **注意**：`filter-tasks` 的日期参数基于任务的 `startDate` 字段，而非 `dueDate`。
+
+> 日期参数支持简短 `YYYY-MM-DD`（CLI 自动补 `T00:00:00+0800`）；查询当天范围时上限仍建议用完整时间戳以包含全天。
+
+> 附加 `--fields` 显著降低返回 JSON 体积，加速 Agent 解析。
 
 ### Step 4: 查找逾期任务
 
@@ -70,15 +70,15 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --end-date "2026-04-03T23:59:59+0800" \
-  --status 0 \
+  --body '{"endDate":"2026-04-03T23:59:59+0800","status":[0]}' \
   --fields id,title,projectId,dueDate,priority
 ```
 
 ### Step 5: 筛选高优先级任务
 
 ```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks --priority 3,5 --status 0
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
+  --body '{"priority":[3,5],"status":[0]}'
 ```
 
 ### Step 6: 汇总展示
