@@ -2,7 +2,7 @@
 name: daily-review
 description: |
   每日任务回顾与规划。当用户提到"今日待办""每日回顾""daily review""今天有什么任务""任务概览""task overview""what's on my plate""看看今天要做什么""有什么逾期的吗"时使用。
-version: 0.1.0
+version: 0.2.0
 tools: Bash
 ---
 
@@ -19,6 +19,8 @@ tools: Bash
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
+
+> **字段说明**：filter-tasks/query-completed 的条件经 `--body` JSON 传入；完整字段用 `schema <操作>` 查询；schema 外字段用 `raw`。
 
 ## 执行流程
 
@@ -44,9 +46,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data inbox
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --start-date "2026-04-04T00:00:00+0800" \
-  --end-date "2026-04-04T23:59:59+0800" \
-  --status 0
+  --body '{"startDate":"2026-04-04T00:00:00+0800","endDate":"2026-04-04T23:59:59+0800","status":[0]}'
 ```
 
 > **注意**：`filter-tasks` 的日期参数基于任务的 `startDate` 字段，而非 `dueDate`。
@@ -65,14 +65,14 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
-  --end-date "2026-04-03T23:59:59+0800" \
-  --status 0
+  --body '{"endDate":"2026-04-03T23:59:59+0800","status":[0]}'
 ```
 
 ### Step 5: 筛选高优先级任务
 
 ```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks --priority 3,5 --status 0
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py filter-tasks \
+  --body '{"priority":[3,5],"status":[0]}'
 ```
 
 ### Step 6: 汇总展示
