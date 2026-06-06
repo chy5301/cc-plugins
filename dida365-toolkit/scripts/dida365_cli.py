@@ -124,6 +124,45 @@ def get_schema(operation: str) -> dict:
     return OPERATION_SCHEMAS[operation]
 
 
+_PYTYPE = {"str": str, "int": int, "bool": bool, "array": list}
+
+
+def load_body(raw: str | None) -> dict:
+    """解析 --body JSON 字符串为 dict；None/空 → {}。解析失败抛 ValueError。"""
+    if not raw:
+        return {}
+    return json.loads(raw)
+
+
+def validate_body(operation: str, body: dict) -> list[str]:
+    """按 OPERATION_SCHEMAS 校验 body，返回错误信息列表（空列表表示通过）。
+    规则：拒绝未知字段（防 typo，提示改用 raw）、类型不符、enum 越界、缺必填。
+    move-tasks（body_is_array）由调用方单独处理，不走本函数。
+    """
+    schema = OPERATION_SCHEMAS[operation]
+    fields = schema["fields"]
+    errors: list[str] = []
+    for key, val in body.items():
+        if key not in fields:
+            errors.append(f"未知字段 '{key}'（不在 {operation} 的 schema 中；如确需发送该字段请用 raw 子命令）")
+            continue
+        spec = fields[key]
+        expected = _PYTYPE[spec["type"]]
+        # bool 是 int 的子类，需先判 bool 再判 int
+        if spec["type"] == "int" and isinstance(val, bool):
+            errors.append(f"字段 '{key}' 类型应为 int，收到 bool")
+            continue
+        if not isinstance(val, expected):
+            errors.append(f"字段 '{key}' 类型应为 {spec['type']}，收到 {type(val).__name__}")
+            continue
+        if "enum" in spec and val not in spec["enum"]:
+            errors.append(f"字段 '{key}' 取值应在 {spec['enum']} 内，收到 {val!r}")
+    for req in schema.get("required", []):
+        if req not in body:
+            errors.append(f"缺少必填字段 '{req}'")
+    return errors
+
+
 def get_client() -> httpx.Client:
     if not TOKEN:
         _fail("CONFIG_ERROR", "未设置环境变量 DIDA365_API_TOKEN",

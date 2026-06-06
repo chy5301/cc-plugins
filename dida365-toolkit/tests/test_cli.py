@@ -51,3 +51,36 @@ def test_cmd_schema_unknown_exits_usage(capsys):
     with pytest.raises(SystemExit) as e:
         cli.cmd_schema(argparse.Namespace(operation="bogus", all=False))
     assert e.value.code == cli.EXIT_USAGE
+
+
+def test_validate_body_accepts_valid_create_task():
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "priority": 3})
+    assert errs == []
+
+
+def test_validate_body_rejects_unknown_field():
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "foo": 1})
+    assert any("foo" in e for e in errs)
+
+
+def test_validate_body_rejects_bad_enum():
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "priority": 2})
+    assert any("priority" in e for e in errs)
+
+
+def test_validate_body_rejects_wrong_type():
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "reminders": "TRIGGER:PT0S"})
+    assert any("reminders" in e for e in errs)
+
+
+def test_validate_body_reports_missing_required():
+    errs = cli.validate_body("create-task", {"projectId": "p"})
+    assert any("title" in e for e in errs)
+
+
+def test_load_body_parses_json():
+    assert cli.load_body('{"title":"x"}') == {"title": "x"}
+
+
+def test_load_body_none_returns_empty():
+    assert cli.load_body(None) == {}
