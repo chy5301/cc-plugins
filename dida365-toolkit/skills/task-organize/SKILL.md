@@ -2,7 +2,7 @@
 name: task-organize
 description: |
   在滴答清单项目间移动和整理任务。当用户提到"移动任务""把任务从...移到...""整理任务""归类""转移""换个清单""move task""reorganize tasks""任务搬到另一个清单"时使用。
-version: 0.1.0
+version: 0.2.0
 tools: Bash
 ---
 
@@ -19,6 +19,8 @@ tools: Bash
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
+
+> **字段说明**：有请求体的命令字段统一经 `--body` JSON 传入；完整字段用 `schema <操作>` 查询；schema 外字段用 `raw`。
 
 ## 步骤
 
@@ -49,12 +51,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data <源项目I
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py move-tasks \
-  --from <源项目ID> \
-  --to <目标项目ID> \
-  --tasks <任务ID1,任务ID2,...>
+  --body '[{"fromProjectId":"<源项目ID>","toProjectId":"<目标项目ID>","taskId":"<任务ID1>"},{"fromProjectId":"<源项目ID>","toProjectId":"<目标项目ID>","taskId":"<任务ID2>"}]'
 ```
 
-支持一次移动多个任务，任务 ID 用逗号分隔。
+每个任务对应数组中的一个对象，支持一次移动多个任务。
 
 ### Step 4: 确认结果
 
