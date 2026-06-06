@@ -375,7 +375,7 @@ def cmd_raw(args: argparse.Namespace) -> None:
         body = load_body(args.body) if args.body else None
     except (ValueError, json.JSONDecodeError) as exc:
         _fail("INVALID_JSON", f"--body 不是合法 JSON：{exc}", exit_code=EXIT_USAGE)
-    path = args.path if args.path.startswith("/") else "/" + args.path
+    path = args.path.lstrip("/")
     with get_client() as c:
         output(handle_response(c.request(method, path, json=body)))
 

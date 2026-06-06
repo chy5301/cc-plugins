@@ -193,7 +193,7 @@ def test_raw_passthrough(monkeypatch):
     args = argparse.Namespace(method="post", path="/task/T1", body='{"id":"T1","isAllDay":true}')
     cli.cmd_raw(args)
     assert _FakeClient.last["method"] == "POST"
-    assert _FakeClient.last["path"] == "/task/T1"
+    assert _FakeClient.last["path"] == "task/T1"
     assert _FakeClient.last["json"] == {"id": "T1", "isAllDay": True}
 
 
