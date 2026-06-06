@@ -34,6 +34,11 @@ EXIT_PERMISSION = 4
 # HTTP 状态码到语义退出码的映射
 _STATUS_TO_EXIT = {401: EXIT_PERMISSION, 403: EXIT_PERMISSION, 404: EXIT_NOT_FOUND}
 
+# locators 把 CLI 参数映射到请求体字段名；值为 _URL_ONLY 表示该参数仅用于 URL path，
+# 不注入 body。注意：path/定位参数由 argparse（位置参数）强制必填，故不列入各操作的
+# `required`（`required` 仅用于校验 body 字段）。
+_URL_ONLY = None
+
 # update-task 与 create-task 共享大部分字段：先构造共享字段，再分别组装
 _TASK_FIELDS = {
     "title":      {"type": "str",  "desc": "任务标题"},
@@ -79,7 +84,7 @@ OPERATION_SCHEMAS = {
     },
     "update-project": {
         "method": "POST", "path": "/project/{project_id}",
-        "locators": {"project_id": None}, "required": [], "fields": _PROJECT_FIELDS,
+        "locators": {"project_id": _URL_ONLY}, "required": [], "fields": _PROJECT_FIELDS,
     },
     "filter-tasks": {
         "method": "POST", "path": "/task/filter",

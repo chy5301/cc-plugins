@@ -3,6 +3,7 @@
 """
 import sys
 import pathlib
+import pytest
 
 # 让测试能 import 单文件脚本 dida365_cli
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts"))
@@ -10,7 +11,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts
 import dida365_cli as cli  # noqa: E402
 
 
-def test_schemas_cover_seven_body_operations():
+def test_schemas_cover_all_body_operations():
     assert set(cli.OPERATION_SCHEMAS) == {
         "create-task", "update-task", "create-project", "update-project",
         "filter-tasks", "query-completed", "move-tasks",
@@ -26,6 +27,5 @@ def test_get_schema_returns_fields_for_create_task():
 
 
 def test_get_schema_unknown_operation_raises():
-    import pytest
     with pytest.raises(KeyError):
         cli.get_schema("nonexistent-op")
