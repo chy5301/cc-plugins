@@ -107,3 +107,42 @@ def test_assemble_body_skips_none_locator_for_update_project():
     # project_id 仅用于 path（映射为 _URL_ONLY/None），不应进入 body
     body = cli.assemble_body("update-project", {"project_id": "P1"}, {"name": "n"})
     assert body == {"name": "n"}
+
+
+class _FakeResp:
+    status_code = 200
+    content = b'{"ok":1}'
+    def json(self):
+        return {"ok": 1}
+
+class _FakeClient:
+    last = {}
+    def __init__(self, *a, **k):
+        pass
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+    def request(self, method, path, json=None):
+        _FakeClient.last = {"method": method, "path": path, "json": json}
+        return _FakeResp()
+
+
+def test_run_body_command_builds_request(monkeypatch, capsys):
+    import argparse
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(project="P1", body='{"title":"买菜","reminders":["TRIGGER:PT0S"]}')
+    cli.run_body_command("create-task", args, {"project": "P1"})
+    sent = _FakeClient.last
+    assert sent["method"] == "POST"
+    assert sent["path"] == "/task"
+    assert sent["json"] == {"title": "买菜", "reminders": ["TRIGGER:PT0S"], "projectId": "P1"}
+
+
+def test_run_body_command_rejects_invalid_field(monkeypatch):
+    import argparse, pytest
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(project="P1", body='{"title":"x","bogus":1}')
+    with pytest.raises(SystemExit) as e:
+        cli.run_body_command("create-task", args, {"project": "P1"})
+    assert e.value.code == cli.EXIT_USAGE

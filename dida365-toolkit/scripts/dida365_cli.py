@@ -294,54 +294,34 @@ def cmd_get_task(args: argparse.Namespace) -> None:
         output(handle_response(c.get(f"/project/{args.project_id}/task/{args.task_id}")))
 
 
-def cmd_create_task(args: argparse.Namespace) -> None:
-    body: dict = {"title": args.title, "projectId": args.project}
-    if args.content:
-        body["content"] = args.content
-    if args.desc:
-        body["desc"] = args.desc
-    if args.priority is not None:
-        body["priority"] = args.priority
-    if args.due_date:
-        body["dueDate"] = args.due_date
-    if args.start_date:
-        body["startDate"] = args.start_date
-    if args.time_zone:
-        body["timeZone"] = args.time_zone
-    if args.all_day:
-        body["isAllDay"] = True
-    if args.tags:
-        body["tags"] = args.tags.split(",")
-    if args.repeat_flag:
-        body["repeatFlag"] = args.repeat_flag
+def run_body_command(operation: str, args: argparse.Namespace, locator_values: dict) -> None:
+    """有请求体命令的统一流程：解析 --body → 注入定位 → 校验 → 发送。"""
+    try:
+        raw_body = load_body(getattr(args, "body", None))
+    except (ValueError, json.JSONDecodeError) as exc:
+        _fail("INVALID_JSON", f"--body 不是合法 JSON：{exc}",
+              suggestion='示例：--body \'{"title":"任务标题"}\'；字段定义见 `schema ' + operation + '`',
+              exit_code=EXIT_USAGE)
+    if not isinstance(raw_body, dict):
+        _fail("INVALID_BODY", "--body 顶层应为 JSON 对象",
+              suggestion=f"字段定义见 `schema {operation}`", exit_code=EXIT_USAGE)
+    body = assemble_body(operation, locator_values, raw_body)
+    errors = validate_body(operation, body)
+    if errors:
+        _fail("BODY_VALIDATION_FAILED", "请求体校验未通过：" + "；".join(errors),
+              suggestion=f"用 `schema {operation}` 查看合法字段；schema 外字段请用 raw 子命令",
+              exit_code=EXIT_USAGE)
+    path = resolve_path(operation, locator_values)
     with get_client() as c:
-        output(handle_response(c.post("/task", json=body)))
+        output(handle_response(c.request(OPERATION_SCHEMAS[operation]["method"], path, json=body)))
+
+
+def cmd_create_task(args: argparse.Namespace) -> None:
+    run_body_command("create-task", args, {"project": args.project})
 
 
 def cmd_update_task(args: argparse.Namespace) -> None:
-    body: dict = {"id": args.task_id, "projectId": args.project}
-    if args.title:
-        body["title"] = args.title
-    if args.content:
-        body["content"] = args.content
-    if args.desc:
-        body["desc"] = args.desc
-    if args.priority is not None:
-        body["priority"] = args.priority
-    if args.due_date:
-        body["dueDate"] = args.due_date
-    if args.start_date:
-        body["startDate"] = args.start_date
-    if args.time_zone:
-        body["timeZone"] = args.time_zone
-    if args.all_day is not None:
-        body["isAllDay"] = args.all_day
-    if args.tags:
-        body["tags"] = args.tags.split(",")
-    if args.repeat_flag:
-        body["repeatFlag"] = args.repeat_flag
-    with get_client() as c:
-        output(handle_response(c.post(f"/task/{args.task_id}", json=body)))
+    run_body_command("update-task", args, {"task_id": args.task_id, "project": args.project})
 
 
 def cmd_complete_task(args: argparse.Namespace) -> None:
@@ -456,32 +436,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("project_id", help="项目 ID")
     p.add_argument("task_id", help="任务 ID")
 
-    p = sub.add_parser("create-task", help="创建任务")
-    p.add_argument("--project", required=True, help="项目 ID")
-    p.add_argument("--title", required=True, help="任务标题")
-    p.add_argument("--content", help="任务内容")
-    p.add_argument("--desc", help="清单描述")
-    p.add_argument("--priority", type=int, choices=[0, 1, 3, 5], help="优先级: 0=无 1=低 3=中 5=高")
-    p.add_argument("--due-date", help="截止时间 (ISO 8601, 如 2026-04-05T00:00:00+0800)")
-    p.add_argument("--start-date", help="开始时间 (ISO 8601)")
-    p.add_argument("--time-zone", help="时区，如 Asia/Shanghai")
-    p.add_argument("--all-day", action="store_true", help="全天任务")
-    p.add_argument("--tags", help="标签，逗号分隔")
-    p.add_argument("--repeat-flag", help="循环规则 (RRULE 格式)")
+    p = sub.add_parser("create-task", help="创建任务（字段经 --body JSON 传入，见 `schema create-task`）")
+    p.add_argument("--project", required=True, help="项目 ID（注入 body.projectId）")
+    p.add_argument("--body", help="请求体 JSON，字段见 `schema create-task`，如 '{\"title\":\"买菜\"}'")
 
-    p = sub.add_parser("update-task", help="更新任务")
-    p.add_argument("task_id", help="任务 ID")
-    p.add_argument("--project", required=True, help="项目 ID")
-    p.add_argument("--title", help="任务标题")
-    p.add_argument("--content", help="任务内容")
-    p.add_argument("--desc", help="清单描述")
-    p.add_argument("--priority", type=int, choices=[0, 1, 3, 5], help="优先级")
-    p.add_argument("--due-date", help="截止时间 (ISO 8601)")
-    p.add_argument("--start-date", help="开始时间 (ISO 8601)")
-    p.add_argument("--time-zone", help="时区")
-    p.add_argument("--all-day", type=bool, help="全天任务")
-    p.add_argument("--tags", help="标签，逗号分隔")
-    p.add_argument("--repeat-flag", help="循环规则 (RRULE 格式)")
+    p = sub.add_parser("update-task", help="更新任务（字段经 --body JSON 传入，见 `schema update-task`）")
+    p.add_argument("task_id", help="任务 ID（注入 path 与 body.id）")
+    p.add_argument("--project", required=True, help="项目 ID（注入 body.projectId）")
+    p.add_argument("--body", help="请求体 JSON，只传要改的字段，见 `schema update-task`")
 
     p = sub.add_parser("complete-task", help="完成任务")
     p.add_argument("project_id", help="项目 ID")
