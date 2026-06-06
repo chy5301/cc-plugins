@@ -2,7 +2,7 @@
 name: task-crud
 description: |
   创建、查看、更新、删除滴答清单任务。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""create task""update task""delete task""add todo""在滴答清单里加一个..."时使用。
-version: 0.1.0
+version: 0.2.0
 tools: Bash
 ---
 
@@ -22,6 +22,8 @@ tools: Bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```
 
+> **字段说明**：有请求体的命令（create-task/update-task）字段统一经 `--body` JSON 传入。构造前用 `schema <操作>` 查询完整字段；schema 未收录的字段用 `raw` 子命令。
+
 ## 操作说明
 
 ### 创建任务
@@ -29,21 +31,13 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py create-task \
   --project <项目ID> \
-  --title "任务标题" \
-  [--content "任务内容"] \
-  [--desc "清单描述"] \
-  [--priority 0|1|3|5] \
-  [--due-date "2026-04-05T00:00:00+0800"] \
-  [--start-date "2026-04-04T00:00:00+0800"] \
-  [--time-zone "Asia/Shanghai"] \
-  [--all-day] \
-  [--tags "标签1,标签2"] \
-  [--repeat-flag "RRULE:FREQ=DAILY;INTERVAL=1"]
+  --body '{"title":"任务标题","content":"任务内容","priority":3,"dueDate":"2026-04-05T00:00:00+0800","isAllDay":true,"reminders":["TRIGGER:PT0S"]}'
 ```
 
-**必需参数**：`--project`（项目 ID）和 `--title`（标题）。
-
-**优先级说明**：0=无, 1=低, 3=中, 5=高。
+**必需**：`--project`（定位，注入 body.projectId）与 body 中的 `title`。
+**字段定义**：`uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py schema create-task`。
+**优先级**：0=无 1=低 3=中 5=高。
+**提醒 reminders**：ISO8601 触发器数组，`TRIGGER:PT0S`=准时、`TRIGGER:P0DT9H0M0S`=提前 9 小时、`TRIGGER:P1D`=提前 1 天。
 
 > 如果用户未提供项目 ID，先执行 `list-projects` 获取项目列表，让用户选择目标项目。
 
@@ -60,16 +54,11 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-task <项目ID> <任务I
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
   --project <项目ID> \
-  [--title "新标题"] \
-  [--content "新内容"] \
-  [--desc "清单描述"] \
-  [--priority 0|1|3|5] \
-  [--due-date "..."] \
-  [--start-date "..."] \
-  [--tags "标签1,标签2"]
+  --body '{"title":"新标题","priority":5}'
 ```
 
-**必需参数**：`task_id`（位置参数）和 `--project`。只需传入要修改的字段。
+**必需**：位置参数 `task_id`、`--project`。只在 `--body` 中传要修改的字段。
+**字段定义**：`schema update-task`。
 
 ### 删除任务
 
