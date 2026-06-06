@@ -341,6 +341,23 @@ def cmd_query_completed(args: argparse.Namespace) -> None:
         output(handle_response(c.post("/task/completed", json=body)))
 
 
+# ── Schema 自省 ──────────────────────────────────────────────────────────────
+
+
+def cmd_schema(args: argparse.Namespace) -> None:
+    """输出操作的字段 schema（单一事实来源），供 agent 构造 --body。"""
+    if args.all:
+        output({op: s for op, s in OPERATION_SCHEMAS.items()})
+        return
+    if not args.operation:
+        _fail("INVALID_PARAMETER", "需指定操作名或使用 --all",
+              suggestion=f"可选操作：{', '.join(OPERATION_SCHEMAS)}", exit_code=EXIT_USAGE)
+    if args.operation not in OPERATION_SCHEMAS:
+        _fail("UNKNOWN_OPERATION", f"未知操作 '{args.operation}'",
+              suggestion=f"可选操作：{', '.join(OPERATION_SCHEMAS)}", exit_code=EXIT_USAGE)
+    output(OPERATION_SCHEMAS[args.operation])
+
+
 # ── CLI 入口 ──────────────────────────────────────────────────────────────────
 
 
@@ -437,6 +454,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--start-date", help="起始时间 (ISO 8601)")
     p.add_argument("--end-date", help="结束时间 (ISO 8601)")
 
+    # ── Schema 自省 ──
+    p = sub.add_parser("schema", help="输出某操作的请求体字段 schema（构造 --body 前查询）")
+    p.add_argument("operation", nargs="?", help="操作名，如 create-task；省略时配合 --all")
+    p.add_argument("--all", action="store_true", help="输出全部操作的 schema")
+
     return parser
 
 
@@ -455,6 +477,7 @@ COMMAND_MAP = {
     "move-tasks": cmd_move_tasks,
     "filter-tasks": cmd_filter_tasks,
     "query-completed": cmd_query_completed,
+    "schema": cmd_schema,
 }
 
 

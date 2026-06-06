@@ -29,3 +29,25 @@ def test_get_schema_returns_fields_for_create_task():
 def test_get_schema_unknown_operation_raises():
     with pytest.raises(KeyError):
         cli.get_schema("nonexistent-op")
+
+
+def test_cmd_schema_single(capsys):
+    import argparse, json
+    cli.cmd_schema(argparse.Namespace(operation="create-task", all=False))
+    out = json.loads(capsys.readouterr().out)
+    assert out["success"] is True
+    assert "reminders" in out["data"]["fields"]
+
+
+def test_cmd_schema_all(capsys):
+    import argparse, json
+    cli.cmd_schema(argparse.Namespace(operation=None, all=True))
+    out = json.loads(capsys.readouterr().out)
+    assert set(out["data"]) == set(cli.OPERATION_SCHEMAS)
+
+
+def test_cmd_schema_unknown_exits_usage(capsys):
+    import argparse, pytest
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_schema(argparse.Namespace(operation="bogus", all=False))
+    assert e.value.code == cli.EXIT_USAGE
