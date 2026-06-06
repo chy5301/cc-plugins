@@ -249,37 +249,11 @@ def cmd_get_project_data(args: argparse.Namespace) -> None:
 
 
 def cmd_create_project(args: argparse.Namespace) -> None:
-    body: dict = {"name": args.name}
-    if args.color:
-        body["color"] = args.color
-    if args.view_mode:
-        body["viewMode"] = args.view_mode
-    if args.kind:
-        body["kind"] = args.kind
-    if args.sort_order is not None:
-        body["sortOrder"] = args.sort_order
-    with get_client() as c:
-        output(handle_response(c.post("/project", json=body)))
+    run_body_command("create-project", args, {})
 
 
 def cmd_update_project(args: argparse.Namespace) -> None:
-    body: dict = {}
-    if args.name:
-        body["name"] = args.name
-    if args.color:
-        body["color"] = args.color
-    if args.view_mode:
-        body["viewMode"] = args.view_mode
-    if args.kind:
-        body["kind"] = args.kind
-    if args.sort_order is not None:
-        body["sortOrder"] = args.sort_order
-    if not body:
-        _fail("INVALID_PARAMETER", "至少需要一个要更新的字段",
-              suggestion="使用 --name, --color, --view-mode, --kind 或 --sort-order 指定要更新的字段",
-              exit_code=EXIT_USAGE)
-    with get_client() as c:
-        output(handle_response(c.post(f"/project/{args.project_id}", json=body)))
+    run_body_command("update-project", args, {"project_id": args.project_id})
 
 
 def cmd_delete_project(args: argparse.Namespace) -> None:
@@ -350,33 +324,11 @@ def cmd_move_tasks(args: argparse.Namespace) -> None:
 
 
 def cmd_filter_tasks(args: argparse.Namespace) -> None:
-    body: dict = {}
-    if args.projects:
-        body["projectIds"] = args.projects.split(",")
-    if args.start_date:
-        body["startDate"] = args.start_date
-    if args.end_date:
-        body["endDate"] = args.end_date
-    if args.priority:
-        body["priority"] = [int(p) for p in args.priority.split(",")]
-    if args.tags:
-        body["tag"] = args.tags.split(",")
-    if args.status:
-        body["status"] = [int(s) for s in args.status.split(",")]
-    with get_client() as c:
-        output(handle_response(c.post("/task/filter", json=body)))
+    run_body_command("filter-tasks", args, {})
 
 
 def cmd_query_completed(args: argparse.Namespace) -> None:
-    body: dict = {}
-    if args.projects:
-        body["projectIds"] = args.projects.split(",")
-    if args.start_date:
-        body["startDate"] = args.start_date
-    if args.end_date:
-        body["endDate"] = args.end_date
-    with get_client() as c:
-        output(handle_response(c.post("/task/completed", json=body)))
+    run_body_command("query-completed", args, {})
 
 
 # ── Schema 自省 ──────────────────────────────────────────────────────────────
@@ -415,20 +367,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("get-project-data", help="获取项目及其任务和列")
     p.add_argument("project_id", help="项目 ID（可用 'inbox' 获取收集箱）")
 
-    p = sub.add_parser("create-project", help="创建项目")
-    p.add_argument("--name", required=True, help="项目名称")
-    p.add_argument("--color", help="项目颜色，如 #F18181")
-    p.add_argument("--view-mode", choices=["list", "kanban", "timeline"], help="视图模式")
-    p.add_argument("--kind", choices=["TASK", "NOTE"], help="项目类型")
-    p.add_argument("--sort-order", type=int, help="排序值")
+    p = sub.add_parser("create-project", help="创建项目（字段经 --body，见 `schema create-project`）")
+    p.add_argument("--body", help="请求体 JSON，如 '{\"name\":\"工作\"}'，见 `schema create-project`")
 
-    p = sub.add_parser("update-project", help="更新项目")
-    p.add_argument("project_id", help="项目 ID")
-    p.add_argument("--name", help="项目名称")
-    p.add_argument("--color", help="项目颜色")
-    p.add_argument("--view-mode", choices=["list", "kanban", "timeline"], help="视图模式")
-    p.add_argument("--kind", choices=["TASK", "NOTE"], help="项目类型")
-    p.add_argument("--sort-order", type=int, help="排序值")
+    p = sub.add_parser("update-project", help="更新项目（字段经 --body，见 `schema update-project`）")
+    p.add_argument("project_id", help="项目 ID（path）")
+    p.add_argument("--body", help="请求体 JSON，只传要改的字段")
 
     p = sub.add_parser("delete-project", help="删除项目")
     p.add_argument("project_id", help="项目 ID")
@@ -461,18 +405,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tasks", required=True, help="任务 ID，逗号分隔")
 
     # ── 查询 ──
-    p = sub.add_parser("filter-tasks", help="按条件筛选任务")
-    p.add_argument("--projects", help="项目 ID，逗号分隔")
-    p.add_argument("--start-date", help="起始时间 (ISO 8601)")
-    p.add_argument("--end-date", help="结束时间 (ISO 8601)")
-    p.add_argument("--priority", help="优先级，逗号分隔 (0,1,3,5)")
-    p.add_argument("--tags", help="标签，逗号分隔")
-    p.add_argument("--status", help="状态，逗号分隔 (0=未完成,2=已完成)")
+    p = sub.add_parser("filter-tasks", help="按条件筛选任务（条件经 --body，见 `schema filter-tasks`）")
+    p.add_argument("--body", help="筛选条件 JSON，如 '{\"priority\":[3,5],\"status\":[0]}'")
 
-    p = sub.add_parser("query-completed", help="查询已完成任务")
-    p.add_argument("--projects", help="项目 ID，逗号分隔")
-    p.add_argument("--start-date", help="起始时间 (ISO 8601)")
-    p.add_argument("--end-date", help="结束时间 (ISO 8601)")
+    p = sub.add_parser("query-completed", help="查询已完成任务（条件经 --body，见 `schema query-completed`）")
+    p.add_argument("--body", help="查询条件 JSON，如 '{\"projectIds\":[\"<id>\"]}'")
+
 
     # ── Schema 自省 ──
     p = sub.add_parser("schema", help="输出某操作的请求体字段 schema（构造 --body 前查询）")

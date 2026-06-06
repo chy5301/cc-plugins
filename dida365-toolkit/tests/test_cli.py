@@ -146,3 +146,21 @@ def test_run_body_command_rejects_invalid_field(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.run_body_command("create-task", args, {"project": "P1"})
     assert e.value.code == cli.EXIT_USAGE
+
+
+def test_filter_tasks_body_passthrough(monkeypatch):
+    import argparse
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(body='{"priority":[3,5],"status":[0]}')
+    cli.run_body_command("filter-tasks", args, {})
+    assert _FakeClient.last["path"] == "/task/filter"
+    assert _FakeClient.last["json"] == {"priority": [3, 5], "status": [0]}
+
+
+def test_update_project_path_locator_not_in_body(monkeypatch):
+    import argparse
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClient())
+    args = argparse.Namespace(project_id="P9", body='{"name":"改名"}')
+    cli.run_body_command("update-project", args, {"project_id": "P9"})
+    assert _FakeClient.last["path"] == "/project/P9"
+    assert _FakeClient.last["json"] == {"name": "改名"}
