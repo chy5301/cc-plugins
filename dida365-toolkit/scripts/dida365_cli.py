@@ -17,7 +17,7 @@ import argparse
 import json
 import os
 import sys
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import httpx
 
@@ -128,8 +128,9 @@ def get_schema(operation: str) -> dict:
 _PYTYPE = {"str": str, "int": int, "bool": bool, "array": list}
 
 
-def load_body(raw: str | None) -> dict:
-    """解析 --body JSON 字符串为 dict；None/空 → {}。解析失败抛 ValueError。"""
+def load_body(raw: str | None) -> Any:
+    """解析 --body JSON 字符串；None/空 → {}。返回类型取决于 JSON 顶层
+    （对象 → dict，数组 → list，如 move-tasks）。解析失败抛 ValueError。"""
     if not raw:
         return {}
     return json.loads(raw)
