@@ -66,7 +66,7 @@ claude --plugin-dir ./dida365-toolkit
 
 ## CLI 脚本
 
-`scripts/dida365_cli.py` 提供 14 个子命令，覆盖滴答清单 Open API 全部 13 个端点：
+`scripts/dida365_cli.py` 提供 16 个子命令（14 个 API 操作命令，外加 schema 自省与 raw 透传），覆盖滴答清单 Open API 全部 13 个端点：
 
 ```bash
 # 项目操作
