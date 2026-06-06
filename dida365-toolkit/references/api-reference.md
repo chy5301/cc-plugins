@@ -159,6 +159,7 @@ POST /open/v1/task
 | Body | repeatFlag | 否 | 循环规则（RRULE 格式） | string |
 | Body | priority | 否 | 优先级，默认 0 | integer |
 | Body | sortOrder | 否 | 排序值 | integer |
+| Body | tags | 否 | 标签字符串数组，如 `["工作","紧急"]` | list |
 | Body | items | 否 | 子任务列表 | list |
 | Body | items.title | — | 子任务标题 | string |
 | Body | items.startDate | — | 子任务开始时间 | date |
@@ -169,6 +170,19 @@ POST /open/v1/task
 | Body | items.completedTime | — | 子任务完成时间 | date |
 
 **响应**：200 返回 [Task](#task-1) 对象
+
+##### reminders 触发器格式
+
+`reminders` 为字符串数组，每个元素为 ISO 8601 duration 触发器：
+
+| 触发器 | 含义 |
+|---|---|
+| `TRIGGER:PT0S` | 准时提醒 |
+| `TRIGGER:P0DT9H0M0S` | 提前 9 小时 |
+| `TRIGGER:P0DT1H0M0S` | 提前 1 小时 |
+| `TRIGGER:P1D` | 提前 1 天 |
+
+示例：`"reminders": ["TRIGGER:PT0S", "TRIGGER:P1D"]`
 
 **示例请求**
 
@@ -210,6 +224,7 @@ POST /open/v1/task/{taskId}
 | Body | repeatFlag | 否 | 循环规则 | string |
 | Body | priority | 否 | 优先级 | integer |
 | Body | sortOrder | 否 | 排序值 | integer |
+| Body | tags | 否 | 标签字符串数组，如 `["工作","紧急"]` | list |
 | Body | items | 否 | 子任务列表（结构同创建任务） | list |
 
 **响应**：200 返回 [Task](#task-1) 对象（含 `kind` 字段）
@@ -570,6 +585,7 @@ DELETE /open/v1/project/{projectId}
 | sortOrder | 排序值 | integer (int64) |
 | startDate | 开始时间 | string (date-time) |
 | status | 完成状态。0=未完成, 2=已完成 | integer (int32) |
+| tags | 标签字符串数组，如 `["工作","紧急"]` | string[] |
 | timeZone | 时区 | string |
 | kind | 类型：`TEXT` / `NOTE` / `CHECKLIST` | string |
 
