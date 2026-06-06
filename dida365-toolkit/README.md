@@ -73,21 +73,21 @@ claude --plugin-dir ./dida365-toolkit
 uv run scripts/dida365_cli.py list-projects
 uv run scripts/dida365_cli.py get-project <projectId>
 uv run scripts/dida365_cli.py get-project-data <projectId>
-uv run scripts/dida365_cli.py create-project --name "名称"
-uv run scripts/dida365_cli.py update-project <projectId> --name "新名称"
+uv run scripts/dida365_cli.py create-project --body '{"name":"名称"}'
+uv run scripts/dida365_cli.py update-project <projectId> --body '{"name":"新名称"}'
 uv run scripts/dida365_cli.py delete-project <projectId>
 
 # 任务操作
 uv run scripts/dida365_cli.py get-task <projectId> <taskId>
-uv run scripts/dida365_cli.py create-task --project <projectId> --title "标题"
-uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --title "新标题"
+uv run scripts/dida365_cli.py create-task --project <projectId> --body '{"title":"标题"}'
+uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --body '{"title":"新标题"}'
 uv run scripts/dida365_cli.py complete-task <projectId> <taskId>
 uv run scripts/dida365_cli.py delete-task <projectId> <taskId>
-uv run scripts/dida365_cli.py move-tasks --from <fromId> --to <toId> --tasks <taskId1,taskId2>
+uv run scripts/dida365_cli.py move-tasks --body '[{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId1>"},{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId2>"}]'
 
-# 查询操作
-uv run scripts/dida365_cli.py filter-tasks --priority 3,5 --status 0
-uv run scripts/dida365_cli.py query-completed --start-date "2026-04-01T00:00:00+0800"
+# 查询操作（字段定义见 `schema <操作>`；schema 外字段用 `raw`）
+uv run scripts/dida365_cli.py filter-tasks --body '{"priority":[3,5],"status":[0]}'
+uv run scripts/dida365_cli.py query-completed --body '{"startDate":"2026-04-01T00:00:00+0800"}'
 ```
 
 ## 依赖
