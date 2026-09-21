@@ -16,10 +16,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from collections.abc import Callable
 
-from mstodo_lib import auth
+from mstodo_lib import auth, client, schemas
 from mstodo_lib import envelope as env
 
 AUTH_COMPLETE_DEFAULT_TIMEOUT = 90
@@ -148,13 +149,164 @@ def cmd_auth_logout(args: argparse.Namespace) -> None:
                command="auth-logout", fields=args.fields)
 
 
-# 认证四条命令，后续可被 Task 9/11 通过 .update() 追加
+# --------------------------------------------------------------------------
+# 资源子命令（表驱动）
+# --------------------------------------------------------------------------
+
+# CLI 参数名 -> 路径模板占位符
+LOCATORS = {"list": "listId", "task": "taskId", "item": "itemId"}
+
+_LISTS = "/me/todo/lists"
+_TASKS = "/me/todo/lists/{listId}/tasks"
+_ITEMS = "/me/todo/lists/{listId}/tasks/{taskId}/checklistItems"
+
+RESOURCE_COMMANDS: dict[str, dict] = {
+    # 清单
+    "list-lists":   {"method": "GET",    "path": _LISTS,           "locators": [],
+                     "collection": True},
+    "get-list":     {"method": "GET",    "path": _LISTS + "/{listId}", "locators": ["list"]},
+    "create-list":  {"method": "POST",   "path": _LISTS,           "locators": [],
+                     "operation": "create-list"},
+    "update-list":  {"method": "PATCH",  "path": _LISTS + "/{listId}", "locators": ["list"],
+                     "operation": "update-list"},
+    "delete-list":  {"method": "DELETE", "path": _LISTS + "/{listId}", "locators": ["list"]},
+    # 任务
+    "list-tasks":   {"method": "GET",    "path": _TASKS,           "locators": ["list"],
+                     "collection": True},
+    "get-task":     {"method": "GET",    "path": _TASKS + "/{taskId}",
+                     "locators": ["list", "task"]},
+    "create-task":  {"method": "POST",   "path": _TASKS,           "locators": ["list"],
+                     "operation": "create-task"},
+    "update-task":  {"method": "PATCH",  "path": _TASKS + "/{taskId}",
+                     "locators": ["list", "task"], "operation": "update-task"},
+    "delete-task":  {"method": "DELETE", "path": _TASKS + "/{taskId}",
+                     "locators": ["list", "task"]},
+    # 子任务
+    "list-checklist-items":  {"method": "GET", "path": _ITEMS,
+                              "locators": ["list", "task"], "collection": True},
+    "get-checklist-item":    {"method": "GET", "path": _ITEMS + "/{itemId}",
+                              "locators": ["list", "task", "item"]},
+    "create-checklist-item": {"method": "POST", "path": _ITEMS,
+                              "locators": ["list", "task"],
+                              "operation": "create-checklist-item"},
+    "update-checklist-item": {"method": "PATCH", "path": _ITEMS + "/{itemId}",
+                              "locators": ["list", "task", "item"],
+                              "operation": "update-checklist-item"},
+    "delete-checklist-item": {"method": "DELETE", "path": _ITEMS + "/{itemId}",
+                              "locators": ["list", "task", "item"]},
+}
+
+_RESOURCE_HELP = {
+    "list-lists": "获取所有清单",
+    "get-list": "获取单个清单",
+    "create-list": "创建清单（字段见 `schema create-list`）",
+    "update-list": "更新清单（内置清单不可改名）",
+    "delete-list": "删除清单（内置清单不可删除，不可逆，建议先 --dry-run）",
+    "list-tasks": "获取清单内的任务（含已完成，用 --status 筛选）",
+    "get-task": "获取单个任务",
+    "create-task": "创建任务（字段见 `schema create-task`）",
+    "update-task": "更新任务，含标记完成（字段见 `schema update-task`）",
+    "delete-task": "删除任务（不可逆，建议先 --dry-run）",
+    "list-checklist-items": "获取任务的子任务列表",
+    "get-checklist-item": "获取单个子任务",
+    "create-checklist-item": "创建子任务",
+    "update-checklist-item": "更新子任务，含勾选",
+    "delete-checklist-item": "删除子任务（不可逆）",
+}
+
+
+def resolve_path(spec: dict, args: argparse.Namespace) -> str:
+    values = {LOCATORS[name]: getattr(args, name) for name in spec["locators"]}
+    return spec["path"].format(**values)
+
+
+def load_body(raw: str | None, operation: str | None) -> dict | None:
+    """解析 --body JSON，校验并展开。校验不过时在发请求之前就失败。"""
+    if operation is None:
+        return None
+    try:
+        parsed = json.loads(raw) if raw else {}
+    except json.JSONDecodeError as exc:
+        env.fail("INVALID_PARAMETER", f"--body 不是合法 JSON：{exc}",
+                 suggestion="检查引号与括号；用 `schema <操作>` 查询字段定义",
+                 exit_code=env.EXIT_USAGE)
+    if not isinstance(parsed, dict):
+        env.fail("INVALID_PARAMETER", "--body 必须是一个 JSON 对象",
+                 exit_code=env.EXIT_USAGE)
+    errors = schemas.validate_body(operation, parsed)
+    if errors:
+        env.fail("INVALID_PARAMETER", "；".join(errors),
+                 suggestion=f"用 `schema {operation}` 查询完整字段定义",
+                 exit_code=env.EXIT_USAGE)
+    try:
+        return schemas.normalize_body(operation, parsed)
+    except schemas.InvalidDatetimeFormat as exc:
+        # Task 7 的修复轮次引入：日期形状不合法时不再静默透传，
+        # 在此转成退出码 2，而不是让裸异常穿透到 Agent 面前。
+        env.fail("INVALID_PARAMETER", str(exc),
+                 suggestion="日期支持 'YYYY-MM-DD' 或 'YYYY-MM-DDTHH:MM:SS'，"
+                            "也可传完整的 {dateTime, timeZone} 对象",
+                 exit_code=env.EXIT_USAGE)
+
+
+def run_resource(name: str, args: argparse.Namespace) -> None:
+    spec = RESOURCE_COMMANDS[name]
+    path = resolve_path(spec, args)
+    body = load_body(getattr(args, "body", None), spec.get("operation"))
+
+    if args.dry_run:
+        env.output({"would_call": f"{spec['method']} {path}", "body": body},
+                   command=name, dry_run=True, fields=args.fields,
+                   exit_code=env.EXIT_DRY_RUN)
+
+    token = resolve_token()
+    started = time.time()
+    http = client.make_client()
+    try:
+        if spec.get("collection"):
+            items, paging = client.get_collection(
+                path, http=http, token=token, max_pages=args.max_pages)
+            took = int((time.time() - started) * 1000)
+            if paging["truncated"]:
+                env.fail("PARTIAL_FAILURE",
+                         f"已取 {paging['pages_fetched']} 页后触发 --max-pages 上限，结果不完整",
+                         suggestion="提高 --max-pages 或改用更窄的查询条件",
+                         exit_code=env.EXIT_PARTIAL,
+                         data=env.apply_fields(items, args.fields),
+                         extra={"command": f"mstodo_cli {name}",
+                                "took_ms": took,
+                                "result_count": len(items), **paging})
+            env.output(items, command=name, took_ms=took,
+                       extra=paging, fields=args.fields)
+
+        resp = client.request(spec["method"], path, http=http, token=token, body=body)
+        data = client.handle_response(resp)
+        if data is None:
+            data = {"deleted": True} if spec["method"] == "DELETE" else {}
+        env.output(data, command=name,
+                   took_ms=int((time.time() - started) * 1000), fields=args.fields)
+    except client.GraphError as exc:
+        env.fail(exc.code, exc.message,
+                 suggestion="用 `schema <操作>` 核对字段，或用 raw 子命令排查",
+                 exit_code=client.status_to_exit(exc.status))
+    finally:
+        http.close()
+
+
+# 认证四条命令；随后 .update() 合入资源表生成的条目。
+# Task 11 会再对 "list-tasks" 做一次 .update() 覆盖（聚合 --list all），
+# 故这里必须保持 .update() 可追加的形状，不能写死成字面量或改成不可变结构。
 COMMAND_MAP: dict[str, Callable[[argparse.Namespace], None]] = {
     "auth-start": cmd_auth_start,
     "auth-complete": cmd_auth_complete,
     "auth-status": cmd_auth_status,
     "auth-logout": cmd_auth_logout,
 }
+COMMAND_MAP.update({
+    # 用默认参数在定义时绑定 name，避免闭包晚绑定（所有 lambda 共享同一个循环变量）
+    name: (lambda args, _name=name: run_resource(_name, args))
+    for name in RESOURCE_COMMANDS
+})
 
 
 def build_parser() -> JsonArgumentParser:
@@ -178,6 +330,16 @@ def build_parser() -> JsonArgumentParser:
 
     p = sub.add_parser("auth-logout", help="删除本机 token 缓存")
     add_global_options(p)
+
+    _LOCATOR_HELP = {"list": "清单 id", "task": "任务 id", "item": "子任务 id"}
+    for name, spec in RESOURCE_COMMANDS.items():
+        p = sub.add_parser(name, help=_RESOURCE_HELP[name])
+        for locator in spec["locators"]:
+            p.add_argument(f"--{locator}", required=True, help=_LOCATOR_HELP[locator])
+        if spec.get("operation"):
+            p.add_argument("--body", default=None,
+                           help=f"请求体 JSON（字段见 `schema {spec['operation']}`）")
+        add_global_options(p)
 
     return parser
 

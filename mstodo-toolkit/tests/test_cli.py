@@ -1,6 +1,7 @@
 """CLI 入口单测：argparse 装配、认证子命令、错误信封。"""
 import json
 
+import httpx
 import mstodo_cli as cli
 import pytest
 from mstodo_lib import auth
@@ -132,7 +133,6 @@ def test_auth_complete_fails_if_cache_unreadable_after_write(cache_dir, capsys, 
     assert "logged_in" not in parsed.get("data", {})
 
 
-@pytest.mark.xfail(reason="list-lists 在 Task 9 加入")
 def test_resolve_token_maps_auth_expired_to_permission(cache_dir, capsys, monkeypatch):
     def boom(**kw):
         raise auth.AuthExpiredError("AADSTS700082: refresh token 已过期")
@@ -141,3 +141,158 @@ def test_resolve_token_maps_auth_expired_to_permission(cache_dir, capsys, monkey
     assert code == env.EXIT_PERMISSION
     assert parsed["error"]["code"] == "AUTH_EXPIRED"
     assert "AADSTS700082" in parsed["error"]["message"]
+
+
+@pytest.fixture
+def logged_in(cache_dir):
+    auth.write_cache({"access_token": "AT-1", "refresh_token": "RT-1",
+                      "expires_in": 3599, "scope": "Tasks.ReadWrite"}, now=1e12)
+    return cache_dir
+
+
+@pytest.fixture
+def graph(monkeypatch):
+    """拦截所有 Graph 请求，记录并按预置回放。"""
+    calls = []
+    replies = []
+
+    def handler(request):
+        calls.append((request.method, str(request.url),
+                      json.loads(request.content) if request.content else None))
+        return replies.pop(0) if replies else httpx.Response(200, json={"value": []})
+
+    monkeypatch.setattr(cli.client, "make_client",
+                        lambda **kw: httpx.Client(transport=httpx.MockTransport(handler)))
+    return {"calls": calls, "replies": replies}
+
+
+def test_resource_command_table_has_exactly_the_specced_15(logged_in):
+    assert set(cli.RESOURCE_COMMANDS) == {
+        "list-lists", "get-list", "create-list", "update-list", "delete-list",
+        "list-tasks", "get-task", "create-task", "update-task", "delete-task",
+        "list-checklist-items", "get-checklist-item", "create-checklist-item",
+        "update-checklist-item", "delete-checklist-item",
+    }
+
+
+def test_move_tasks_and_complete_task_are_absent(logged_in):
+    """spec §3.2 / §5.1：这两个子命令明令禁止实现。"""
+    assert "move-tasks" not in cli.RESOURCE_COMMANDS
+    assert "complete-task" not in cli.RESOURCE_COMMANDS
+    assert "move-tasks" not in cli.COMMAND_MAP
+    assert "complete-task" not in cli.COMMAND_MAP
+
+
+def test_list_lists_follows_pagination(logged_in, graph, capsys):
+    graph["replies"].extend([
+        httpx.Response(200, json={"value": [{"id": "L1", "@odata.etag": "e"}],
+                                  "@odata.nextLink": f"{cli.client.GRAPH_BASE}/next"}),
+        httpx.Response(200, json={"value": [{"id": "L2"}]}),
+    ])
+    code, parsed = run(["list-lists"], capsys)
+    assert code == env.EXIT_OK
+    assert [item["id"] for item in parsed["data"]] == ["L1", "L2"]
+    assert parsed["metadata"]["result_count"] == 2
+    assert parsed["metadata"]["pages_fetched"] == 2
+    assert "@odata.etag" not in json.dumps(parsed["data"])
+
+
+def test_truncated_collection_exits_with_partial(logged_in, graph, capsys):
+    """spec §6.7：触发 --max-pages 上限必须标 truncated 并走退出码 5。"""
+    graph["replies"].append(httpx.Response(200, json={
+        "value": [{"id": "L1"}], "@odata.nextLink": f"{cli.client.GRAPH_BASE}/next"}))
+    code, parsed = run(["list-lists", "--max-pages", "1"], capsys)
+    assert code == env.EXIT_PARTIAL
+    assert parsed["error"]["code"] == "PARTIAL_FAILURE"
+    assert parsed["data"] == [{"id": "L1"}]
+    assert parsed["metadata"]["truncated"] is True
+
+
+def test_get_list_substitutes_locator_into_path(logged_in, graph, capsys):
+    graph["replies"].append(httpx.Response(200, json={"id": "L1", "displayName": "任务"}))
+    code, parsed = run(["get-list", "--list", "L1"], capsys)
+    assert code == env.EXIT_OK
+    assert graph["calls"][0][1].endswith("/me/todo/lists/L1")
+    assert parsed["data"]["displayName"] == "任务"
+
+
+def test_create_task_expands_date_and_body_before_sending(logged_in, graph, capsys):
+    graph["replies"].append(httpx.Response(201, json={"id": "T1"}))
+    run(["create-task", "--list", "L1",
+         "--body", '{"title":"写周报","dueDateTime":"2026-04-05","body":"覆盖三个里程碑"}'],
+        capsys)
+    method, url, sent = graph["calls"][0]
+    assert method == "POST"
+    assert url.endswith("/me/todo/lists/L1/tasks")
+    assert sent["dueDateTime"] == {"dateTime": "2026-04-05T00:00:00",
+                                   "timeZone": "Asia/Shanghai"}
+    assert sent["body"] == {"content": "覆盖三个里程碑", "contentType": "text"}
+
+
+def test_create_task_rejects_missing_title_before_any_request(logged_in, graph, capsys):
+    code, parsed = run(["create-task", "--list", "L1", "--body", '{"importance":"high"}'],
+                       capsys)
+    assert code == env.EXIT_USAGE
+    assert parsed["error"]["code"] == "INVALID_PARAMETER"
+    assert "title" in parsed["error"]["message"]
+    assert graph["calls"] == []
+
+
+def test_update_task_rejects_illegal_status_enum(logged_in, graph, capsys):
+    code, parsed = run(["update-task", "--list", "L1", "--task", "T1",
+                        "--body", '{"status":"done"}'], capsys)
+    assert code == env.EXIT_USAGE
+    assert "waitingOnOthers" in parsed["error"]["message"]
+    assert graph["calls"] == []
+
+
+def test_malformed_body_json_is_a_usage_error(logged_in, graph, capsys):
+    code, parsed = run(["create-task", "--list", "L1", "--body", "{not json"], capsys)
+    assert code == env.EXIT_USAGE
+    assert parsed["error"]["code"] == "INVALID_PARAMETER"
+
+
+def test_malformed_date_is_a_usage_error_not_a_traceback(logged_in, graph, capsys):
+    """Task 7 修复轮次引入 InvalidDatetimeFormat；它必须被转成信封而非穿透。"""
+    code, parsed = run(["create-task", "--list", "L1",
+                        "--body", '{"title":"T","dueDateTime":"not-a-date"}'], capsys)
+    assert code == env.EXIT_USAGE
+    assert parsed["error"]["code"] == "INVALID_PARAMETER"
+    assert graph["calls"] == []
+
+
+def test_delete_task_returns_no_content_envelope(logged_in, graph, capsys):
+    graph["replies"].append(httpx.Response(204))
+    code, parsed = run(["delete-task", "--list", "L1", "--task", "T1"], capsys)
+    assert code == env.EXIT_OK
+    assert graph["calls"][0][0] == "DELETE"
+    assert parsed["data"]["deleted"] is True
+
+
+def test_graph_404_maps_to_not_found_exit(logged_in, graph, capsys):
+    graph["replies"].append(httpx.Response(404, json={"error": {
+        "code": "ItemNotFound", "message": "指定的任务不存在"}}))
+    code, parsed = run(["get-task", "--list", "L1", "--task", "NOPE"], capsys)
+    assert code == env.EXIT_NOT_FOUND
+    assert parsed["error"]["code"] == "ItemNotFound"
+
+
+def test_graph_403_maps_to_permission_exit(logged_in, graph, capsys):
+    graph["replies"].append(httpx.Response(403, json={"error": {
+        "code": "ErrorAccessDenied", "message": "无权访问"}}))
+    code, _ = run(["list-lists"], capsys)
+    assert code == env.EXIT_PERMISSION
+
+
+def test_checklist_item_path_uses_all_three_locators(logged_in, graph, capsys):
+    graph["replies"].append(httpx.Response(200, json={"id": "C1"}))
+    run(["get-checklist-item", "--list", "L1", "--task", "T1", "--item", "C1"], capsys)
+    assert graph["calls"][0][1].endswith(
+        "/me/todo/lists/L1/tasks/T1/checklistItems/C1")
+
+
+def test_fields_mask_trims_each_item(logged_in, graph, capsys):
+    graph["replies"].append(httpx.Response(200, json={"value": [
+        {"id": "L1", "displayName": "任务", "isOwner": True, "wellknownListName": "defaultList"}]}))
+    _, parsed = run(["list-lists", "--fields", "id,displayName"], capsys)
+    assert parsed["data"] == [{"id": "L1", "displayName": "任务"}]
