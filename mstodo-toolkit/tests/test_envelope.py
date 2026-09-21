@@ -1,7 +1,7 @@
 """envelope 模块单测：信封结构、字段掩码、退出码。"""
 import json
-import pytest
 
+import pytest
 from mstodo_lib import envelope as env
 
 
@@ -25,6 +25,13 @@ def test_apply_fields_filters_keys_of_a_dict():
 
 def test_apply_fields_silently_drops_unknown_keys():
     assert env.apply_fields([{"id": "1"}], "id,nope") == [{"id": "1"}]
+
+
+def test_apply_fields_preserves_non_dict_items_in_list_as_is():
+    """list 中混有非 dict 元素时，非 dict 项原样保留不被裁剪。"""
+    data = [{"id": "1", "title": "a"}, "raw-string", {"id": "2"}]
+    result = env.apply_fields(data, "id")
+    assert result == [{"id": "1"}, "raw-string", {"id": "2"}]
 
 
 def test_apply_fields_none_or_empty_means_no_trim():
