@@ -138,8 +138,9 @@ def expand_datetime(value: Any) -> Any:
         return value
 
     # 验证日期形状：YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS（含小数秒）
-    date_pattern = r'^\d{4}-\d{2}-\d{2}$'
-    datetime_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$'
+    # 使用 \Z 而非 $ 严格匹配字符串结尾（$ 允许尾随换行）
+    date_pattern = r'^\d{4}-\d{2}-\d{2}\Z'
+    datetime_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\Z'
 
     if re.match(date_pattern, value):
         stamp = f"{value}T00:00:00"

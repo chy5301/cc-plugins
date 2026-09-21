@@ -172,3 +172,28 @@ def test_expand_datetime_accepts_valid_datetime_with_fractional_seconds():
     """带小数秒的合法时间戳应正常工作。"""
     result = schemas.expand_datetime("2026-04-05T14:30:00.123")
     assert result["dateTime"] == "2026-04-05T14:30:00.123"
+
+
+# Finding 2 补充修复：尾随与前导空白应被拒绝
+def test_expand_datetime_rejects_trailing_newline_in_date():
+    """日期末尾含换行符应被拒绝（正则 $ 陷阱）。"""
+    with pytest.raises(schemas.InvalidDatetimeFormat):
+        schemas.expand_datetime("2026-04-05\n")
+
+
+def test_expand_datetime_rejects_trailing_newline_in_datetime():
+    """日期时间末尾含换行符应被拒绝。"""
+    with pytest.raises(schemas.InvalidDatetimeFormat):
+        schemas.expand_datetime("2026-04-05T14:30:00\n")
+
+
+def test_expand_datetime_rejects_trailing_tab():
+    """日期末尾含制表符应被拒绝。"""
+    with pytest.raises(schemas.InvalidDatetimeFormat):
+        schemas.expand_datetime("2026-04-05\t")
+
+
+def test_expand_datetime_rejects_leading_newline():
+    """日期开头含换行符应被拒绝。"""
+    with pytest.raises(schemas.InvalidDatetimeFormat):
+        schemas.expand_datetime("\n2026-04-05")
