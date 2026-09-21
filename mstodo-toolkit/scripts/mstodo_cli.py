@@ -20,7 +20,7 @@ import json
 import time
 from collections.abc import Callable
 
-from mstodo_lib import auth, client, schemas
+from mstodo_lib import aggregate, auth, client, schemas
 from mstodo_lib import envelope as env
 
 AUTH_COMPLETE_DEFAULT_TIMEOUT = 90
@@ -352,8 +352,75 @@ def run_resource(name: str, args: argparse.Namespace) -> None:
         http.close()
 
 
-# 认证四条命令；随后 .update() 合入资源表生成的条目。
-# Task 11 会再对 "list-tasks" 做一次 .update() 覆盖（聚合 --list all），
+def cmd_list_tasks(args: argparse.Namespace) -> None:
+    """列出任务。--list all 走跨清单聚合。"""
+    if args.dry_run:
+        target = "全部清单" if args.list == "all" else args.list
+        env.output({"would_call": f"GET /me/todo/lists/{target}/tasks"},
+                   command="list-tasks", dry_run=True, fields=args.fields,
+                   exit_code=env.EXIT_DRY_RUN)
+
+    token = resolve_token()
+    started = time.time()
+    http = client.make_client()
+    try:
+        if args.list == "all":
+            lists, _ = client.get_collection("/me/todo/lists", http=http, token=token,
+                                             max_pages=args.max_pages)
+            items, meta = aggregate.aggregate_tasks(
+                lists, http=http, token=token, max_pages=args.max_pages)
+        else:
+            entry = client.handle_response(client.request(
+                "GET", f"/me/todo/lists/{args.list}", http=http, token=token))
+            raw, paging = client.get_collection(
+                f"/me/todo/lists/{args.list}/tasks", http=http, token=token,
+                max_pages=args.max_pages)
+            items = aggregate.inject_list_identity(
+                raw, list_id=args.list, display_name=entry.get("displayName", ""))
+            meta = {"aggregated_from": 1, "partial_failures": [],
+                    "retry_after_seconds": None, "all_auth_failed": False,
+                    **paging}
+            if paging["truncated"]:
+                meta["partial_failures"] = [{"listId": args.list,
+                                             "displayName": entry.get("displayName", ""),
+                                             "status": 0, "retry_after": None,
+                                             "reason": "truncated"}]
+
+        # 状态过滤必须在分页完整跟完之后
+        items = aggregate.filter_by_status(items, args.status)
+        took = int((time.time() - started) * 1000)
+
+        if meta["all_auth_failed"]:
+            env.fail("HTTP_403", "所有清单都返回了权限不足",
+                     suggestion="检查登录账号与 Tasks.ReadWrite 授权，必要时重新登录",
+                     exit_code=env.EXIT_PERMISSION)
+
+        if meta["partial_failures"]:
+            wait = meta.get("retry_after_seconds")
+            hint = (f"至少等待 {wait} 秒后再重试失败项，不要立即重试"
+                    if wait else "失败清单见 metadata.partial_failures")
+            env.fail("PARTIAL_FAILURE",
+                     f"{meta['aggregated_from']} 个清单中 "
+                     f"{meta['aggregated_from'] - len(meta['partial_failures'])} 个成功，"
+                     f"{len(meta['partial_failures'])} 个失败",
+                     suggestion=f"data 中已含成功部分；{hint}",
+                     exit_code=env.EXIT_PARTIAL,
+                     data=env.apply_fields(items, args.fields),
+                     extra={"command": "mstodo_cli list-tasks", "took_ms": took,
+                            "result_count": len(items), **meta})
+
+        env.output(items, command="list-tasks", took_ms=took,
+                   extra=meta, fields=args.fields)
+    except client.GraphError as exc:
+        env.fail(exc.code, exc.message, exit_code=client.status_to_exit(exc.status))
+    finally:
+        http.close()
+
+
+# 认证四条 + schema + raw 的字面量 dict；随后 .update() 两次：
+# 第一次合入资源表（RESOURCE_COMMANDS）生成的 15 条通用执行器，
+# 第二次用 cmd_list_tasks 覆盖 "list-tasks"（聚合 --list all 与 --status）。
+# 覆盖必须晚于第一次 .update()，否则会被资源表的通用 run_resource 盖回去。
 # 故这里必须保持 .update() 可追加的形状，不能写死成字面量或改成不可变结构。
 COMMAND_MAP: dict[str, Callable[[argparse.Namespace], None]] = {
     "auth-start": cmd_auth_start,
@@ -368,6 +435,7 @@ COMMAND_MAP.update({
     name: (lambda args, _name=name: run_resource(_name, args))
     for name in RESOURCE_COMMANDS
 })
+COMMAND_MAP["list-tasks"] = cmd_list_tasks
 
 
 def build_parser() -> JsonArgumentParser:
@@ -408,10 +476,17 @@ def build_parser() -> JsonArgumentParser:
     for name, spec in RESOURCE_COMMANDS.items():
         p = sub.add_parser(name, help=_RESOURCE_HELP[name])
         for locator in spec["locators"]:
-            p.add_argument(f"--{locator}", required=True, help=_LOCATOR_HELP[locator])
+            help_text = _LOCATOR_HELP[locator]
+            if name == "list-tasks" and locator == "list":
+                help_text = "清单 id，或 all 表示跨全部清单聚合"
+            p.add_argument(f"--{locator}", required=True, help=help_text)
         if spec.get("operation"):
             p.add_argument("--body", default=None,
                            help=f"请求体 JSON（字段见 `schema {spec['operation']}`）")
+        if name == "list-tasks":
+            p.add_argument("--status", default=None,
+                           help="按 taskStatus 过滤，逗号分隔。"
+                                "过滤在分页完整跟完之后执行")
         add_global_options(p)
 
     return parser

@@ -372,3 +372,69 @@ def test_raw_non_json_2xx_response_outputs_error_envelope(logged_in, graph, caps
     assert parsed["error"]["code"] == "RAW_RESPONSE_NOT_JSON"
     assert "非 JSON" in parsed["error"]["message"]
     assert "<html>" in parsed["error"]["suggestion"]
+
+
+def test_list_tasks_all_aggregates_across_lists(logged_in, graph, capsys):
+    graph["replies"].extend([
+        httpx.Response(200, json={"value": [
+            {"id": "L1", "displayName": "工作"}, {"id": "L2", "displayName": "个人"}]}),
+        httpx.Response(200, json={"responses": [
+            {"id": "L1", "status": 200, "body": {"value": [{"id": "T1"}]}},
+            {"id": "L2", "status": 200, "body": {"value": [{"id": "T2"}]}}]}),
+    ])
+    code, parsed = run(["list-tasks", "--list", "all"], capsys)
+    assert code == env.EXIT_OK
+    assert parsed["metadata"]["aggregated_from"] == 2
+    assert {i["listDisplayName"] for i in parsed["data"]} == {"工作", "个人"}
+
+
+def test_list_tasks_all_partial_failure_carries_data_and_exits_5(logged_in, graph, capsys):
+    graph["replies"].extend([
+        httpx.Response(200, json={"value": [
+            {"id": "L1", "displayName": "工作"}, {"id": "L2", "displayName": "个人"}]}),
+        httpx.Response(200, json={"responses": [
+            {"id": "L1", "status": 200, "body": {"value": [{"id": "T1"}]}},
+            {"id": "L2", "status": 429, "headers": {"Retry-After": "30"},
+             "body": {"error": {"code": "TooManyRequests", "message": "慢"}}}]}),
+    ])
+    code, parsed = run(["list-tasks", "--list", "all"], capsys)
+    assert code == env.EXIT_PARTIAL
+    assert parsed["success"] is False
+    assert parsed["error"]["code"] == "PARTIAL_FAILURE"
+    assert parsed["data"] == [{"id": "T1", "listId": "L1", "listDisplayName": "工作"}]
+    assert parsed["metadata"]["retry_after_seconds"] == 30
+    assert "30" in parsed["error"]["suggestion"]
+
+
+def test_list_tasks_all_auth_failure_exits_4_not_5(logged_in, graph, capsys):
+    graph["replies"].extend([
+        httpx.Response(200, json={"value": [{"id": "L1", "displayName": "工作"}]}),
+        httpx.Response(200, json={"responses": [
+            {"id": "L1", "status": 403, "body": {"error": {"code": "ErrorAccessDenied",
+                                                           "message": "无权"}}}]}),
+    ])
+    code, _ = run(["list-tasks", "--list", "all"], capsys)
+    assert code == env.EXIT_PERMISSION
+
+
+def test_single_list_also_injects_list_id(logged_in, graph, capsys):
+    """spec §6.4 / D6：两种模式都注入，否则 --fields listId 静默失效。"""
+    graph["replies"].extend([
+        httpx.Response(200, json={"id": "L1", "displayName": "工作"}),
+        httpx.Response(200, json={"value": [{"id": "T1"}]}),
+    ])
+    _, parsed = run(["list-tasks", "--list", "L1", "--fields", "id,listId"], capsys)
+    assert parsed["data"] == [{"id": "T1", "listId": "L1"}]
+
+
+def test_status_filter_runs_after_pagination(logged_in, graph, capsys):
+    """spec §5.4 / D4：首页全是 completed，未完成任务在第二页。"""
+    graph["replies"].extend([
+        httpx.Response(200, json={"id": "L1", "displayName": "工作"}),
+        httpx.Response(200, json={
+            "value": [{"id": "T1", "status": "completed"}],
+            "@odata.nextLink": f"{cli.client.GRAPH_BASE}/more"}),
+        httpx.Response(200, json={"value": [{"id": "T2", "status": "notStarted"}]}),
+    ])
+    _, parsed = run(["list-tasks", "--list", "L1", "--status", "notStarted"], capsys)
+    assert [i["id"] for i in parsed["data"]] == ["T2"]
