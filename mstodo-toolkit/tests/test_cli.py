@@ -118,6 +118,20 @@ def test_auth_complete_default_timeout_is_90_seconds(cache_dir, capsys, monkeypa
     assert seen["timeout_s"] == 90
 
 
+def test_auth_complete_fails_if_cache_unreadable_after_write(cache_dir, capsys, monkeypatch):
+    """写入后读回失败（client_id/tenant 中途变更）应当响亮失败，而非静默降级。"""
+    monkeypatch.setattr(auth, "device_code_poll", lambda dc, **kw: {
+        "access_token": "AT", "refresh_token": "RT",
+        "expires_in": 3599, "scope": "Tasks.ReadWrite"})
+    # 模拟 read_cache 返回 None（如 client_id/tenant 中途改变）
+    monkeypatch.setattr(auth, "read_cache", lambda: None)
+    code, parsed = run(["auth-complete", "--device-code", "DC-1"], capsys)
+    assert code == env.EXIT_ERROR
+    assert parsed["success"] is False
+    assert parsed["error"]["code"] == "AUTH_CACHE_CORRUPT"
+    assert "logged_in" not in parsed.get("data", {})
+
+
 @pytest.mark.xfail(reason="list-lists 在 Task 9 加入")
 def test_resolve_token_maps_auth_expired_to_permission(cache_dir, capsys, monkeypatch):
     def boom(**kw):

@@ -111,7 +111,12 @@ def cmd_auth_complete(args: argparse.Namespace) -> None:
                  exit_code=env.EXIT_AUTH_PENDING)
 
     auth.write_cache(token)
-    cached = auth.read_cache() or {}
+    cached = auth.read_cache()
+    if cached is None:
+        env.fail("AUTH_CACHE_CORRUPT",
+                 "写入缓存后立即读回失败（client_id 或 tenant 可能中途变更）",
+                 suggestion="检查环境变量 MSTODO_CLIENT_ID 与 MSTODO_TENANT 未改变，然后重试",
+                 exit_code=env.EXIT_ERROR)
     env.output({
         "logged_in": True,
         "tenant": auth.tenant(),
