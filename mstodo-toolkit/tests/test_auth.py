@@ -3,6 +3,8 @@ import json
 import os
 import stat
 
+import httpx
+import pytest
 from mstodo_lib import auth
 
 TOKEN_RESPONSE = {
@@ -76,3 +78,100 @@ def test_clear_cache_reports_whether_anything_was_removed(cache_dir):
     auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
     assert auth.clear_cache() is True
     assert not auth.cache_path().exists()
+
+
+def _transport(handler):
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_device_code_start_posts_scope_and_client_id(cache_dir):
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["body"] = request.content.decode()
+        return httpx.Response(200, json={
+            "device_code": "DC-1", "user_code": "ABCD1234",
+            "verification_uri": "https://microsoft.com/link",
+            "expires_in": 900, "interval": 5})
+
+    with _transport(handler) as http:
+        result = auth.device_code_start(http=http)
+
+    assert result["user_code"] == "ABCD1234"
+    assert result["interval"] == 5
+    assert seen["url"].endswith("/common/oauth2/v2.0/devicecode")
+    assert "Tasks.ReadWrite+offline_access" in seen["body"] or \
+           "Tasks.ReadWrite%20offline_access" in seen["body"]
+    assert auth.DEFAULT_CLIENT_ID in seen["body"]
+
+
+def test_device_code_poll_returns_token_after_pending(cache_dir):
+    replies = [
+        httpx.Response(400, json={"error": "authorization_pending"}),
+        httpx.Response(400, json={"error": "authorization_pending"}),
+        httpx.Response(200, json={"access_token": "AT-9", "refresh_token": "RT-9",
+                                  "expires_in": 3599, "scope": "Tasks.ReadWrite"}),
+    ]
+    clock = {"t": 0.0}
+    slept = []
+
+    with _transport(lambda r: replies.pop(0)) as http:
+        token = auth.device_code_poll(
+            "DC-1", interval=5, timeout_s=90, http=http,
+            now=lambda: clock["t"],
+            sleep=lambda s: (slept.append(s), clock.__setitem__("t", clock["t"] + s)))
+
+    assert token["access_token"] == "AT-9"
+    assert slept == [5, 5, 5]
+
+
+def test_device_code_poll_backs_off_on_slow_down(cache_dir):
+    replies = [
+        httpx.Response(400, json={"error": "slow_down"}),
+        httpx.Response(200, json={"access_token": "AT-9", "expires_in": 3599}),
+    ]
+    clock = {"t": 0.0}
+    slept = []
+
+    with _transport(lambda r: replies.pop(0)) as http:
+        auth.device_code_poll(
+            "DC-1", interval=5, timeout_s=90, http=http,
+            now=lambda: clock["t"],
+            sleep=lambda s: (slept.append(s), clock.__setitem__("t", clock["t"] + s)))
+
+    assert slept == [5, 10]   # slow_down 之后 interval += 5
+
+
+def test_device_code_poll_returns_none_on_timeout(cache_dir):
+    clock = {"t": 0.0}
+
+    def handler(request):
+        return httpx.Response(400, json={"error": "authorization_pending"})
+
+    with _transport(handler) as http:
+        result = auth.device_code_poll(
+            "DC-1", interval=5, timeout_s=12, http=http,
+            now=lambda: clock["t"],
+            sleep=lambda s: clock.__setitem__("t", clock["t"] + s))
+
+    assert result is None
+
+
+def test_device_code_poll_raises_on_declined(cache_dir):
+    with _transport(lambda r: httpx.Response(400, json={
+            "error": "authorization_declined",
+            "error_description": "用户拒绝了请求"})) as http, \
+            pytest.raises(auth.DeviceCodeError) as exc:
+        auth.device_code_poll("DC-1", interval=1, timeout_s=90, http=http,
+                              now=lambda: 0.0, sleep=lambda s: None)
+    assert exc.value.kind == "declined"
+
+
+def test_device_code_poll_raises_on_expired_token(cache_dir):
+    with _transport(lambda r: httpx.Response(400, json={
+            "error": "expired_token"})) as http, \
+            pytest.raises(auth.DeviceCodeError) as exc:
+        auth.device_code_poll("DC-1", interval=1, timeout_s=90, http=http,
+                              now=lambda: 0.0, sleep=lambda s: None)
+    assert exc.value.kind == "expired"

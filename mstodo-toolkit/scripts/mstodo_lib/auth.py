@@ -11,6 +11,8 @@ import pathlib
 import time
 from typing import Any
 
+import httpx
+
 # 微软第一方公共 client（Graph Command Line Tools），免 Azure 注册
 DEFAULT_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
 DEFAULT_TENANT = "common"
@@ -81,3 +83,78 @@ def clear_cache() -> bool:
         return True
     except FileNotFoundError:
         return False
+
+
+class DeviceCodeError(Exception):
+    """设备码流的终态失败：用户拒绝，或 device_code 已过期。"""
+
+    def __init__(self, kind: str, detail: str) -> None:
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail
+
+
+def auth_base() -> str:
+    """Microsoft 认证服务的基础 URL。"""
+    return f"https://login.microsoftonline.com/{tenant()}/oauth2/v2.0"
+
+
+def device_code_start(*, http: httpx.Client | None = None) -> dict:
+    """发起设备码流，立即返回 user_code 等信息，不阻塞。"""
+    owned = http is None
+    client = http or httpx.Client(timeout=30)
+    try:
+        resp = client.post(f"{auth_base()}/devicecode",
+                           data={"client_id": client_id(), "scope": SCOPE})
+        payload = resp.json()
+        if resp.status_code != 200:
+            raise DeviceCodeError("other", json.dumps(payload, ensure_ascii=False))
+        return payload
+    finally:
+        if owned:
+            client.close()
+
+
+def device_code_poll(device_code: str, *, interval: int, timeout_s: float,
+                     http: httpx.Client | None = None,
+                     now=time.time, sleep=time.sleep) -> dict | None:
+    """轮询授权结果。
+
+    返回 token 响应表示成功；返回 None 表示到达 timeout_s 时用户仍未完成授权
+    （调用方应以 AUTH_PENDING 提示用户用同一个 device_code 重试）；
+    用户拒绝或 device_code 过期则抛 DeviceCodeError。
+
+    必须遵循服务端下发的 interval；收到 slow_down 时 interval += 5（RFC 8628）。
+    """
+    owned = http is None
+    client = http or httpx.Client(timeout=30)
+    deadline = now() + timeout_s
+    wait = interval
+    try:
+        while now() < deadline:
+            sleep(wait)
+            resp = client.post(f"{auth_base()}/token", data={
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                "client_id": client_id(),
+                "device_code": device_code,
+            })
+            payload = resp.json()
+            if resp.status_code == 200:
+                return payload
+            err = payload.get("error", "")
+            if err == "authorization_pending":
+                continue
+            if err == "slow_down":
+                wait += 5
+                continue
+            if err == "authorization_declined":
+                raise DeviceCodeError("declined", payload.get(
+                    "error_description", "用户拒绝了授权请求"))
+            if err == "expired_token":
+                raise DeviceCodeError("expired", payload.get(
+                    "error_description", "device_code 已过期，请重新发起登录"))
+            raise DeviceCodeError("other", json.dumps(payload, ensure_ascii=False))
+        return None
+    finally:
+        if owned:
+            client.close()
