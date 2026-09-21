@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import pathlib
@@ -99,20 +100,27 @@ def auth_base() -> str:
     return f"https://login.microsoftonline.com/{tenant()}/oauth2/v2.0"
 
 
-def device_code_start(*, http: httpx.Client | None = None) -> dict:
-    """发起设备码流，立即返回 user_code 等信息，不阻塞。"""
+@contextlib.contextmanager
+def _client_session(http: httpx.Client | None = None):
+    """获取客户端会话。若调用方未传入，则创建一个临时的并在退出时关闭。"""
     owned = http is None
     client = http or httpx.Client(timeout=30)
     try:
+        yield client
+    finally:
+        if owned:
+            client.close()
+
+
+def device_code_start(*, http: httpx.Client | None = None) -> dict:
+    """发起设备码流，立即返回 user_code 等信息，不阻塞。"""
+    with _client_session(http) as client:
         resp = client.post(f"{auth_base()}/devicecode",
                            data={"client_id": client_id(), "scope": SCOPE})
         payload = resp.json()
         if resp.status_code != 200:
             raise DeviceCodeError("other", json.dumps(payload, ensure_ascii=False))
         return payload
-    finally:
-        if owned:
-            client.close()
 
 
 def device_code_poll(device_code: str, *, interval: int, timeout_s: float,
@@ -127,11 +135,9 @@ def device_code_poll(device_code: str, *, interval: int, timeout_s: float,
     必须遵循服务端下发的 interval；收到 slow_down 时 interval += 5（RFC 8628）。
     绝不允许 sleep 超过 deadline；slow_down 导致 wait 膨胀时仍在 deadline 处返回。
     """
-    owned = http is None
-    client = http or httpx.Client(timeout=30)
-    deadline = now() + timeout_s
-    wait = interval
-    try:
+    with _client_session(http) as client:
+        deadline = now() + timeout_s
+        wait = interval
         while now() < deadline:
             # 计算剩余时间，sleep 不超过它
             remaining = deadline - now()
@@ -163,6 +169,60 @@ def device_code_poll(device_code: str, *, interval: int, timeout_s: float,
                     "error_description", "device_code 已过期，请重新发起登录"))
             raise DeviceCodeError("other", json.dumps(payload, ensure_ascii=False))
         return None
-    finally:
-        if owned:
-            client.close()
+
+
+class NotLoggedInError(Exception):
+    """本机从未登录过。调用方映射为退出码 2 + CONFIG_ERROR。"""
+
+
+class AuthExpiredError(Exception):
+    """登录过但 refresh 失败（撤销 / 超 90 天 / 改密码）。
+
+    调用方映射为退出码 4 + AUTH_EXPIRED。注意：token 端点返回的是
+    HTTP 400 + invalid_grant，不是 401——不得写成 HTTP_401，否则会与
+    "真的调 Graph 拿到 401" 在信封上不可区分。
+    """
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+def refresh(refresh_token: str, *, http: httpx.Client | None = None) -> dict:
+    """用 refresh_token 换新的 access_token。失败抛 AuthExpiredError。"""
+    with _client_session(http) as client:
+        resp = client.post(f"{auth_base()}/token", data={
+            "grant_type": "refresh_token",
+            "client_id": client_id(),
+            "scope": SCOPE,
+            "refresh_token": refresh_token,
+        })
+        payload = resp.json()
+        if resp.status_code != 200:
+            raise AuthExpiredError(payload.get(
+                "error_description", json.dumps(payload, ensure_ascii=False)))
+        return payload
+
+
+def get_access_token(*, http: httpx.Client | None = None, now=time.time) -> str:
+    """取可用的 access_token；剩余有效期不足阈值时先刷新并写回缓存。
+
+    对调用方完全透明。
+    """
+    cached = read_cache()
+    if cached is None:
+        raise NotLoggedInError("本机尚未登录 Microsoft To Do")
+
+    if float(cached.get("expires_at", 0)) - now() > REFRESH_SKEW_SECONDS:
+        return cached["access_token"]
+
+    old_refresh = cached.get("refresh_token") or ""
+    if not old_refresh:
+        raise AuthExpiredError("缓存中没有 refresh_token，需重新登录")
+
+    fresh = refresh(old_refresh, http=http)
+    # 响应未回带 refresh_token 时沿用旧的
+    fresh.setdefault("refresh_token", old_refresh)
+    fresh.setdefault("scope", cached.get("scope", ""))
+    write_cache(fresh, now=now())
+    return fresh["access_token"]

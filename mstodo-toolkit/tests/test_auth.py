@@ -212,3 +212,97 @@ def test_device_code_poll_slow_down_respects_timeout(cache_dir):
 
     assert result is None
     assert clock["t"] <= 12  # 绝不冲过 deadline
+
+
+def test_get_access_token_raises_when_never_logged_in(cache_dir):
+    with pytest.raises(auth.NotLoggedInError):
+        auth.get_access_token(now=lambda: 1_000_000.0)
+
+
+def test_get_access_token_uses_cache_when_still_fresh(cache_dir):
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+
+    def handler(request):  # 不该被调用
+        raise AssertionError("token 仍新鲜时不应发起刷新")
+
+    with _transport(handler) as http:
+        token = auth.get_access_token(http=http, now=lambda: 1_000_000.0 + 100)
+    assert token == "AT-1"
+
+
+def test_get_access_token_refreshes_within_skew_window(cache_dir):
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    # expires_at = 1_000_000 + 3599；剩余 200 秒 < 300 秒阈值，应触发刷新
+    at = 1_000_000.0 + 3599 - 200
+    seen = {}
+
+    def handler(request):
+        seen["body"] = request.content.decode()
+        return httpx.Response(200, json={"access_token": "AT-2", "refresh_token": "RT-2",
+                                         "expires_in": 3599, "scope": "Tasks.ReadWrite"})
+
+    with _transport(handler) as http:
+        token = auth.get_access_token(http=http, now=lambda: at)
+
+    assert token == "AT-2"
+    assert "refresh_token" in seen["body"] and "RT-1" in seen["body"]
+    # 新 token 已写回缓存
+    assert auth.read_cache()["access_token"] == "AT-2"
+    assert auth.read_cache()["refresh_token"] == "RT-2"
+
+
+def test_refresh_failure_raises_auth_expired_not_http_401(cache_dir):
+    """spec §4.4：token 端点返回 400 invalid_grant，不是 401。"""
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+
+    def handler(request):
+        return httpx.Response(400, json={
+            "error": "invalid_grant",
+            "error_description": "AADSTS700082: The refresh token has expired."})
+
+    with _transport(handler) as http, pytest.raises(auth.AuthExpiredError) as exc:
+        auth.get_access_token(http=http, now=lambda: at)
+    assert "AADSTS700082" in exc.value.detail
+
+
+def test_refresh_keeps_old_refresh_token_when_response_omits_it(cache_dir):
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+
+    with _transport(lambda r: httpx.Response(200, json={
+            "access_token": "AT-3", "expires_in": 3599})) as http:
+        auth.get_access_token(http=http, now=lambda: at)
+
+    assert auth.read_cache()["refresh_token"] == "RT-1"
+
+
+def test_get_access_token_raises_auth_expired_when_cache_has_no_refresh_token(cache_dir):
+    auth.write_cache({"access_token": "AT-1", "expires_in": 10}, now=1_000_000.0)
+    with pytest.raises(auth.AuthExpiredError):
+        auth.get_access_token(now=lambda: 1_000_000.0 + 5)
+
+
+def test_concurrent_refresh_leaves_cache_usable(cache_dir):
+    """spec §9：官方明确旧 refresh token 不被吊销，故并发刷新是良性的。
+
+    两个会话同时刷新，最坏结果是旧 token 覆盖新 token——缓存仍然可用，
+    下次调用自动再刷。这里把这个结论钉死，防止有人事后"优化"成文件锁。
+    """
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+    issued = iter(["AT-A", "AT-B"])
+
+    def handler(request):
+        return httpx.Response(200, json={
+            "access_token": next(issued), "refresh_token": "RT-NEW",
+            "expires_in": 3599, "scope": "Tasks.ReadWrite"})
+
+    with _transport(handler) as http:
+        auth.get_access_token(http=http, now=lambda: at)
+        auth.get_access_token(http=http, now=lambda: at)
+
+    cached = auth.read_cache()
+    assert cached["access_token"] in {"AT-A", "AT-B"}
+    assert cached["refresh_token"] == "RT-NEW"
+    assert [f.name for f in auth.cache_path().parent.iterdir()] == ["token.json"]
