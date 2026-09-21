@@ -122,3 +122,84 @@ def test_handle_response_tolerates_error_field_as_null():
         client.handle_response(resp)
     assert exc.value.status == 503
     assert exc.value.code == "HTTP_503"
+
+
+def _paged_handler(pages):
+    """pages 是 [(items, next_url_or_None), ...]，按请求顺序返回。"""
+    state = {"i": 0}
+
+    def handler(request):
+        items, next_url = pages[state["i"]]
+        state["i"] += 1
+        body = {"value": items}
+        if next_url:
+            body["@odata.nextLink"] = next_url
+        return httpx.Response(200, json=body)
+
+    return handler
+
+
+def test_get_collection_returns_single_page_untouched():
+    with _client(_paged_handler([([{"id": "1"}, {"id": "2"}], None)])) as http:
+        items, meta = client.get_collection("/me/todo/lists", http=http, token="AT")
+    assert items == [{"id": "1"}, {"id": "2"}]
+    assert meta == {"pages_fetched": 1, "truncated": False}
+
+
+def test_get_collection_follows_next_link_to_exhaustion():
+    pages = [
+        ([{"id": "1"}], f"{client.GRAPH_BASE}/me/todo/lists?$skiptoken=A"),
+        ([{"id": "2"}], f"{client.GRAPH_BASE}/me/todo/lists?$skiptoken=B"),
+        ([{"id": "3"}], None),
+    ]
+    with _client(_paged_handler(pages)) as http:
+        items, meta = client.get_collection("/me/todo/lists", http=http, token="AT")
+    assert [i["id"] for i in items] == ["1", "2", "3"]
+    assert meta == {"pages_fetched": 3, "truncated": False}
+
+
+def test_get_collection_requests_next_link_as_absolute_url():
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        if len(seen) == 1:
+            return httpx.Response(200, json={
+                "value": [{"id": "1"}],
+                "@odata.nextLink": f"{client.GRAPH_BASE}/me/todo/lists?$skiptoken=XYZ"})
+        return httpx.Response(200, json={"value": [{"id": "2"}]})
+
+    with _client(handler) as http:
+        client.get_collection("/me/todo/lists", http=http, token="AT")
+
+    assert seen[1] == f"{client.GRAPH_BASE}/me/todo/lists?$skiptoken=XYZ"
+
+
+def test_get_collection_marks_truncated_when_max_pages_hit():
+    pages = [
+        ([{"id": "1"}], f"{client.GRAPH_BASE}/next1"),
+        ([{"id": "2"}], f"{client.GRAPH_BASE}/next2"),
+    ]
+    with _client(_paged_handler(pages)) as http:
+        items, meta = client.get_collection("/me/todo/lists", http=http,
+                                            token="AT", max_pages=2)
+    assert [i["id"] for i in items] == ["1", "2"]
+    assert meta == {"pages_fetched": 2, "truncated": True}
+
+
+def test_get_collection_not_truncated_when_last_page_has_no_next_link():
+    pages = [([{"id": "1"}], f"{client.GRAPH_BASE}/next1"), ([{"id": "2"}], None)]
+    with _client(_paged_handler(pages)) as http:
+        _, meta = client.get_collection("/me/todo/lists", http=http,
+                                        token="AT", max_pages=2)
+    assert meta["truncated"] is False
+
+
+def test_get_collection_strips_item_odata_from_every_page():
+    pages = [
+        ([{"id": "1", "@odata.etag": "e"}], f"{client.GRAPH_BASE}/next"),
+        ([{"id": "2", "@odata.etag": "e"}], None),
+    ]
+    with _client(_paged_handler(pages)) as http:
+        items, _ = client.get_collection("/me/todo/lists", http=http, token="AT")
+    assert items == [{"id": "1"}, {"id": "2"}]

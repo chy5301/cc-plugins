@@ -99,3 +99,33 @@ def handle_response(resp: httpx.Response) -> Any:
         message = resp.text[:500]
 
     raise GraphError(resp.status_code, code, message, retry_after)
+
+
+def get_collection(path: str, *, http: httpx.Client, token: str,
+                   max_pages: int = 0, params: dict | None = None) -> tuple[list, dict]:
+    """取一个集合端点的全部条目，自动跟随 @odata.nextLink。
+
+    Graph 所有集合端点都服务端分页，且不传 $top 也分页。只读首页会静默返回
+    残缺数据（85 个清单只回 50，信封却是 success:true），故默认跟完所有页。
+
+    max_pages=0 表示不限；触发上限时 truncated=True，调用方须据此走退出码 5。
+
+    返回 (items, {"pages_fetched": int, "truncated": bool})。
+    """
+    items: list = []
+    pages = 0
+    url: str | None = path
+    query = params
+    truncated = False
+
+    while url:
+        payload = handle_response(request("GET", url, http=http, token=token, params=query))
+        query = None  # 查询参数只在首请求带，nextLink 已自含
+        pages += 1
+        items.extend(payload.get("value", []) if isinstance(payload, dict) else [])
+        url = payload.get("@odata.nextLink") if isinstance(payload, dict) else None
+        if url and max_pages and pages >= max_pages:
+            truncated = True
+            break
+
+    return items, {"pages_fetched": pages, "truncated": truncated}
