@@ -361,3 +361,14 @@ def test_delete_list_dry_run_does_not_call_graph(logged_in, graph, capsys):
     assert code == env.EXIT_DRY_RUN
     assert parsed["data"]["would_call"] == "DELETE /me/todo/lists/L1"
     assert graph["calls"] == []
+
+
+def test_raw_non_json_2xx_response_outputs_error_envelope(logged_in, graph, capsys):
+    """raw 碰到 2xx 但非 JSON 响应应输出信封而非裸异常。"""
+    graph["replies"].append(httpx.Response(200, text="<html>not json</html>"))
+    code, parsed = run(["raw", "--method", "GET", "--path", "/me/todo/lists/L1"], capsys)
+    assert code == env.EXIT_ERROR
+    assert parsed["success"] is False
+    assert parsed["error"]["code"] == "RAW_RESPONSE_NOT_JSON"
+    assert "非 JSON" in parsed["error"]["message"]
+    assert "<html>" in parsed["error"]["suggestion"]

@@ -107,7 +107,16 @@ def cmd_raw(args: argparse.Namespace) -> None:
         resp = client.request(args.method, args.path, http=http, token=token, body=body)
         if resp.status_code >= 400:
             client.handle_response(resp)   # 抛 GraphError
-        payload = resp.json() if resp.content else None
+        try:
+            payload = resp.json() if resp.content else None
+        except (json.JSONDecodeError, ValueError) as exc:
+            # 对任意端点（含二进制、非 JSON 文本响应）的兜底
+            preview = resp.text[:200] if resp.text else "(空响应体)"
+            env.fail("RAW_RESPONSE_NOT_JSON",
+                     f"Graph 返回了非 JSON 的 2xx 响应：{exc}",
+                     suggestion=f"检查 --path 是否指向返回二进制或文本的端点；"
+                               f"响应体开头：{preview!r}",
+                     exit_code=env.EXIT_ERROR)
         env.output(payload, command="raw",
                    took_ms=int((time.time() - started) * 1000), fields=args.fields)
     except client.GraphError as exc:
