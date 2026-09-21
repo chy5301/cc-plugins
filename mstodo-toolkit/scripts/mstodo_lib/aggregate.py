@@ -82,7 +82,15 @@ def aggregate_tasks(lists: list, *, http: httpx.Client, token: str,
     清单串行跟随续页（$batch 只能压缩首页请求，续页 URL 是运行时才知道的）。
 
     返回 (items, meta)，meta 含 aggregated_from / partial_failures /
-    retry_after_seconds / all_auth_failed / pages_fetched。
+    retry_after_seconds / all_auth_failed / pages_fetched / truncated。
+
+    partial_failures 里每一项都带 reason，区分两类不同性质的不完整：
+    - "error"：该清单的请求硬失败（4xx/5xx 或响应缺失），对应清单在 data
+      里没有任何数据。
+    - "truncated"：该清单命中 max_pages 上限被截断，data 里仍保留了它
+      已取到的部分任务——不是"失败"，调用方不应把它算进失败计数。
+    顶层 truncated 是「本次结果是否已知不完整」的总信号：只要有任意清单
+    被截断（reason=="truncated"），就是 True。
     """
     by_id = {entry["id"]: entry.get("displayName", "") for entry in lists}
     paths = {lid: f"/me/todo/lists/{lid}/tasks" for lid in by_id}
@@ -96,13 +104,13 @@ def aggregate_tasks(lists: list, *, http: httpx.Client, token: str,
         result = responses.get(list_id)
         if result is None:
             failures.append({"listId": list_id, "displayName": display_name,
-                             "status": 0, "retry_after": None})
+                             "status": 0, "retry_after": None, "reason": "error"})
             continue
 
         if result["status"] >= 400:
             failures.append({"listId": list_id, "displayName": display_name,
                              "status": result["status"],
-                             "retry_after": result["retry_after"]})
+                             "retry_after": result["retry_after"], "reason": "error"})
             continue
 
         body = client.strip_item_odata(result["body"])
@@ -141,4 +149,8 @@ def aggregate_tasks(lists: list, *, http: httpx.Client, token: str,
         "partial_failures": failures,
         "retry_after_seconds": max(retry_values) if retry_values else None,
         "all_auth_failed": all_auth_failed,
+        # 只反映"某清单自身任务分页被截断"；本函数只接收现成的 lists 入参，
+        # 不知道这份清单列表本身是怎么取来的——清单枚举是否被截断由调用方
+        # 另行 OR 进 meta["truncated"]。
+        "truncated": any(f.get("reason") == "truncated" for f in failures),
     }

@@ -438,3 +438,54 @@ def test_status_filter_runs_after_pagination(logged_in, graph, capsys):
     ])
     _, parsed = run(["list-tasks", "--list", "L1", "--status", "notStarted"], capsys)
     assert [i["id"] for i in parsed["data"]] == ["T2"]
+
+
+def test_list_tasks_single_list_truncation_keeps_partial_data(logged_in, graph, capsys):
+    """单清单模式触发 --max-pages 上限：退出码 5，data 保留已取到的部分任务。"""
+    graph["replies"].extend([
+        httpx.Response(200, json={"id": "L1", "displayName": "工作"}),
+        httpx.Response(200, json={
+            "value": [{"id": "T1"}],
+            "@odata.nextLink": f"{cli.client.GRAPH_BASE}/more"}),
+    ])
+    code, parsed = run(["list-tasks", "--list", "L1", "--max-pages", "1"], capsys)
+    assert code == env.EXIT_PARTIAL
+    assert parsed["metadata"]["truncated"] is True
+    assert parsed["data"] == [{"id": "T1", "listId": "L1", "listDisplayName": "工作"}]
+
+
+def test_list_tasks_all_marks_single_list_pagination_truncated(logged_in, graph, capsys):
+    """--list all 下某个清单自身分页命中 --max-pages：退出码 5，metadata.truncated
+    为真，且该清单已取到的首页数据仍在 data 中（不是"失败"）。"""
+    graph["replies"].extend([
+        httpx.Response(200, json={"value": [{"id": "L1", "displayName": "工作"}]}),
+        httpx.Response(200, json={"responses": [{
+            "id": "L1", "status": 200,
+            "body": {"value": [{"id": "T1"}],
+                     "@odata.nextLink": f"{cli.client.GRAPH_BASE}/more"}}]}),
+    ])
+    code, parsed = run(["list-tasks", "--list", "all", "--max-pages", "1"], capsys)
+    assert code == env.EXIT_PARTIAL
+    assert parsed["metadata"]["truncated"] is True
+    assert parsed["metadata"]["list_enumeration_truncated"] is False
+    assert parsed["data"] == [{"id": "T1", "listId": "L1", "listDisplayName": "工作"}]
+
+
+def test_list_tasks_all_flags_list_enumeration_truncation(logged_in, graph, capsys):
+    """spec §6.7 升级版：清单枚举本身被 --max-pages 截断——比某个清单任务截断更
+    严重，必须以退出码 5 报告，且要能与"某清单任务截断"区分开。"""
+    graph["replies"].extend([
+        httpx.Response(200, json={
+            "value": [{"id": "L1", "displayName": "工作"}],
+            "@odata.nextLink": f"{cli.client.GRAPH_BASE}/more-lists"}),
+        httpx.Response(200, json={"responses": [
+            {"id": "L1", "status": 200, "body": {"value": [{"id": "T1"}]}}]}),
+    ])
+    code, parsed = run(["list-tasks", "--list", "all", "--max-pages", "1"], capsys)
+    assert code == env.EXIT_PARTIAL
+    assert parsed["metadata"]["truncated"] is True
+    assert parsed["metadata"]["list_enumeration_truncated"] is True
+    assert parsed["data"] == [{"id": "T1", "listId": "L1", "listDisplayName": "工作"}]
+    # 与"某清单任务分页截断"区分：这条 partial_failures 没有具体 listId
+    assert any(f["reason"] == "list_enumeration_truncated"
+              for f in parsed["metadata"]["partial_failures"])

@@ -185,3 +185,46 @@ def test_aggregate_tasks_does_not_flag_auth_when_mixed():
         _, meta = aggregate.aggregate_tasks(lists, http=http, token="AT")
 
     assert meta["all_auth_failed"] is False
+
+
+def test_aggregate_tasks_marks_truncated_when_list_pagination_hits_max_pages():
+    """某清单有续页，但达到 --max-pages 上限：标顶层 truncated，且保留已取到的首页数据。
+
+    与硬失败（reason="error"）区分开——这个清单没有"失败"，只是没取完。
+    """
+    lists = [{"id": "L1", "displayName": "工作"}]
+
+    def handler(request):
+        if request.url.path.endswith("/$batch"):
+            return httpx.Response(200, json={"responses": [{
+                "id": "L1", "status": 200,
+                "body": {"value": [{"id": "T1"}],
+                         "@odata.nextLink": f"{client.GRAPH_BASE}/more"}}]})
+        return httpx.Response(200, json={"value": [{"id": "T2"}]})
+
+    with _client(handler) as http:
+        items, meta = aggregate.aggregate_tasks(lists, http=http, token="AT", max_pages=1)
+
+    assert [i["id"] for i in items] == ["T1"]
+    assert meta["truncated"] is True
+    assert meta["partial_failures"] == [
+        {"listId": "L1", "displayName": "工作", "status": 0, "retry_after": None,
+         "reason": "truncated"}]
+
+
+def test_aggregate_tasks_tags_hard_failures_with_error_reason_not_truncated():
+    """硬失败（无数据）必须打 reason="error"，且不应把顶层 truncated 标为真。"""
+    lists = [{"id": "L1", "displayName": "工作"}]
+
+    def handler(request):
+        return httpx.Response(200, json={"responses": [
+            {"id": "L1", "status": 429, "headers": {"Retry-After": "5"},
+             "body": {"error": {"code": "TooManyRequests", "message": "慢"}}}]})
+
+    with _client(handler) as http:
+        _, meta = aggregate.aggregate_tasks(lists, http=http, token="AT")
+
+    assert meta["partial_failures"] == [
+        {"listId": "L1", "displayName": "工作", "status": 429, "retry_after": 5,
+         "reason": "error"}]
+    assert meta["truncated"] is False

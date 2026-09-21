@@ -365,10 +365,20 @@ def cmd_list_tasks(args: argparse.Namespace) -> None:
     http = client.make_client()
     try:
         if args.list == "all":
-            lists, _ = client.get_collection("/me/todo/lists", http=http, token=token,
-                                             max_pages=args.max_pages)
+            lists, lists_paging = client.get_collection(
+                "/me/todo/lists", http=http, token=token, max_pages=args.max_pages)
             items, meta = aggregate.aggregate_tasks(
                 lists, http=http, token=token, max_pages=args.max_pages)
+            # 清单枚举本身（不是某个清单的任务分页）被截断：这比"某清单失败"更
+            # 严重——聚合是在一个不完整的清单集合上跑完的，压根没被枚举到的
+            # 清单连尝试都没尝试。必须单独打标，不能和逐清单失败混在一起数。
+            meta["list_enumeration_truncated"] = lists_paging["truncated"]
+            if lists_paging["truncated"]:
+                meta["truncated"] = True
+                meta["partial_failures"].append({
+                    "listId": None, "displayName": None, "status": 0,
+                    "retry_after": None, "reason": "list_enumeration_truncated",
+                })
         else:
             entry = client.handle_response(client.request(
                 "GET", f"/me/todo/lists/{args.list}", http=http, token=token))
@@ -379,7 +389,7 @@ def cmd_list_tasks(args: argparse.Namespace) -> None:
                 raw, list_id=args.list, display_name=entry.get("displayName", ""))
             meta = {"aggregated_from": 1, "partial_failures": [],
                     "retry_after_seconds": None, "all_auth_failed": False,
-                    **paging}
+                    "list_enumeration_truncated": False, **paging}
             if paging["truncated"]:
                 meta["partial_failures"] = [{"listId": args.list,
                                              "displayName": entry.get("displayName", ""),
@@ -396,14 +406,38 @@ def cmd_list_tasks(args: argparse.Namespace) -> None:
                      exit_code=env.EXIT_PERMISSION)
 
         if meta["partial_failures"]:
+            failures = meta["partial_failures"]
+            enum_truncated = meta["list_enumeration_truncated"]
+            # 三类互不相同的不完整原因，计数与措辞都不能混为一谈：
+            # 硬失败（无数据）、单清单分页截断（有部分数据）、清单枚举截断
+            # （连哪些清单都没数全）。
+            hard = [f for f in failures if f.get("reason") == "error"]
+            page_truncated = [f for f in failures if f.get("reason") == "truncated"]
+            ok = meta["aggregated_from"] - len(hard) - len(page_truncated)
+
+            message_bits = []
+            if enum_truncated:
+                message_bits.append("清单枚举本身已被 --max-pages 截断，"
+                                    "未被列出的清单完全未纳入本次聚合")
+            message_bits.append(f"已知 {meta['aggregated_from']} 个清单中 "
+                                f"{ok} 个完整成功")
+            if page_truncated:
+                message_bits.append(f"{len(page_truncated)} 个清单因 --max-pages "
+                                    f"上限被截断（data 中已含其已取到的部分任务）")
+            if hard:
+                message_bits.append(f"{len(hard)} 个清单请求失败（data 中无对应数据）")
+
             wait = meta.get("retry_after_seconds")
-            hint = (f"至少等待 {wait} 秒后再重试失败项，不要立即重试"
-                    if wait else "失败清单见 metadata.partial_failures")
-            env.fail("PARTIAL_FAILURE",
-                     f"{meta['aggregated_from']} 个清单中 "
-                     f"{meta['aggregated_from'] - len(meta['partial_failures'])} 个成功，"
-                     f"{len(meta['partial_failures'])} 个失败",
-                     suggestion=f"data 中已含成功部分；{hint}",
+            suggestion_bits = ["data 中已含目前已知的成功与部分数据"]
+            if enum_truncated or page_truncated:
+                suggestion_bits.append("提高 --max-pages 以取到完整结果")
+            if hard:
+                suggestion_bits.append(
+                    f"至少等待 {wait} 秒后再重试失败清单，不要立即重试" if wait
+                    else "失败清单见 metadata.partial_failures")
+
+            env.fail("PARTIAL_FAILURE", "；".join(message_bits),
+                     suggestion="；".join(suggestion_bits),
                      exit_code=env.EXIT_PARTIAL,
                      data=env.apply_fields(items, args.fields),
                      extra={"command": "mstodo_cli list-tasks", "took_ms": took,
