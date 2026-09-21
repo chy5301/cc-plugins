@@ -221,8 +221,10 @@ def get_access_token(*, http: httpx.Client | None = None, now=time.time) -> str:
         raise AuthExpiredError("缓存中没有 refresh_token，需重新登录")
 
     fresh = refresh(old_refresh, http=http)
-    # 响应未回带 refresh_token 时沿用旧的
-    fresh.setdefault("refresh_token", old_refresh)
-    fresh.setdefault("scope", cached.get("scope", ""))
+    # 响应未回带或回带假值时沿用旧的（与读侧 `cached.get(...) or ""` 对齐）
+    if not fresh.get("refresh_token"):
+        fresh["refresh_token"] = old_refresh
+    if not fresh.get("scope"):
+        fresh["scope"] = cached.get("scope", "")
     write_cache(fresh, now=now())
     return fresh["access_token"]

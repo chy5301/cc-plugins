@@ -277,6 +277,43 @@ def test_refresh_keeps_old_refresh_token_when_response_omits_it(cache_dir):
     assert auth.read_cache()["refresh_token"] == "RT-1"
 
 
+def test_refresh_keeps_old_refresh_token_when_response_returns_null(cache_dir):
+    """响应显式返回 null 也应沿用旧值，不应静默覆盖。"""
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+
+    with _transport(lambda r: httpx.Response(200, json={
+            "access_token": "AT-4", "refresh_token": None, "expires_in": 3599})) as http:
+        auth.get_access_token(http=http, now=lambda: at)
+
+    assert auth.read_cache()["refresh_token"] == "RT-1"
+
+
+def test_refresh_keeps_old_refresh_token_when_response_returns_empty_string(cache_dir):
+    """响应显式返回空字符串也应沿用旧值，不应静默覆盖。"""
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+
+    with _transport(lambda r: httpx.Response(200, json={
+            "access_token": "AT-5", "refresh_token": "", "expires_in": 3599})) as http:
+        auth.get_access_token(http=http, now=lambda: at)
+
+    assert auth.read_cache()["refresh_token"] == "RT-1"
+
+
+def test_refresh_keeps_old_scope_when_response_returns_null(cache_dir):
+    """scope 也应与 refresh_token 同样对待：假值时沿用旧值。"""
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+
+    with _transport(lambda r: httpx.Response(200, json={
+            "access_token": "AT-6", "refresh_token": "RT-NEW", "scope": None,
+            "expires_in": 3599})) as http:
+        auth.get_access_token(http=http, now=lambda: at)
+
+    assert auth.read_cache()["scope"] == "Tasks.ReadWrite"
+
+
 def test_get_access_token_raises_auth_expired_when_cache_has_no_refresh_token(cache_dir):
     auth.write_cache({"access_token": "AT-1", "expires_in": 10}, now=1_000_000.0)
     with pytest.raises(auth.AuthExpiredError):
