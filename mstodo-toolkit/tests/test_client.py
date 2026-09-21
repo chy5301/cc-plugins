@@ -95,3 +95,30 @@ def test_request_sends_bearer_token_and_joins_path():
 
     assert seen["auth"] == "Bearer AT-1"
     assert seen["url"] == f"{client.GRAPH_BASE}/me/todo/lists"
+
+
+def test_handle_response_tolerates_error_field_as_string():
+    """错误体的 error 字段是字符串而非对象时，不抛 AttributeError。"""
+    resp = httpx.Response(500, json={"error": "Internal Server Error"})
+    with pytest.raises(client.GraphError) as exc:
+        client.handle_response(resp)
+    assert exc.value.status == 500
+    assert exc.value.code == "HTTP_500"
+
+
+def test_handle_response_tolerates_non_dict_top_level():
+    """响应顶层是数组而非对象时，不抛 AttributeError。"""
+    resp = httpx.Response(502, json=[1, 2, 3])
+    with pytest.raises(client.GraphError) as exc:
+        client.handle_response(resp)
+    assert exc.value.status == 502
+    assert exc.value.code == "HTTP_502"
+
+
+def test_handle_response_tolerates_error_field_as_null():
+    """错误体的 error 字段显式为 null 时，不抛 AttributeError。"""
+    resp = httpx.Response(503, json={"error": None})
+    with pytest.raises(client.GraphError) as exc:
+        client.handle_response(resp)
+    assert exc.value.status == 503
+    assert exc.value.code == "HTTP_503"

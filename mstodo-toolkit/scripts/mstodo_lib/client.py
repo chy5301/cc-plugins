@@ -89,7 +89,9 @@ def handle_response(resp: httpx.Response) -> Any:
 
     try:
         payload = resp.json()
-        err = payload.get("error", {}) if isinstance(payload, dict) else {}
+        err = payload.get("error") if isinstance(payload, dict) else None
+        if not isinstance(err, dict):
+            err = {}
         code = err.get("code") or f"HTTP_{resp.status_code}"
         message = err.get("message") or json.dumps(payload, ensure_ascii=False)
     except (json.JSONDecodeError, ValueError):
