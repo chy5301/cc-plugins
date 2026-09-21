@@ -125,6 +125,7 @@ def device_code_poll(device_code: str, *, interval: int, timeout_s: float,
     用户拒绝或 device_code 过期则抛 DeviceCodeError。
 
     必须遵循服务端下发的 interval；收到 slow_down 时 interval += 5（RFC 8628）。
+    绝不允许 sleep 超过 deadline；slow_down 导致 wait 膨胀时仍在 deadline 处返回。
     """
     owned = http is None
     client = http or httpx.Client(timeout=30)
@@ -132,7 +133,14 @@ def device_code_poll(device_code: str, *, interval: int, timeout_s: float,
     wait = interval
     try:
         while now() < deadline:
-            sleep(wait)
+            # 计算剩余时间，sleep 不超过它
+            remaining = deadline - now()
+            sleep(min(wait, remaining))
+
+            # 醒来后重新检查 deadline
+            if now() >= deadline:
+                return None
+
             resp = client.post(f"{auth_base()}/token", data={
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                 "client_id": client_id(),

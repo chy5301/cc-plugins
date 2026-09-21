@@ -175,3 +175,40 @@ def test_device_code_poll_raises_on_expired_token(cache_dir):
         auth.device_code_poll("DC-1", interval=1, timeout_s=90, http=http,
                               now=lambda: 0.0, sleep=lambda s: None)
     assert exc.value.kind == "expired"
+
+
+def test_device_code_poll_respects_timeout_exactly(cache_dir):
+    """绝不 sleep 超过 deadline；返回时刻必须 <= 起始时刻 + timeout_s。"""
+    clock = {"t": 0.0}
+    start_time = 0.0
+
+    def handler(request):
+        return httpx.Response(400, json={"error": "authorization_pending"})
+
+    with _transport(handler) as http:
+        result = auth.device_code_poll(
+            "DC-1", interval=5, timeout_s=12, http=http,
+            now=lambda: clock["t"],
+            sleep=lambda s: clock.__setitem__("t", clock["t"] + s))
+
+    assert result is None
+    assert clock["t"] <= start_time + 12  # 绝不冲过 deadline
+
+
+def test_device_code_poll_slow_down_respects_timeout(cache_dir):
+    """slow_down 导致 wait 膨胀时，仍在 deadline 处返回。"""
+    clock = {"t": 0.0}
+    slept = []
+
+    def handler(request):
+        # 连续返回 slow_down，导致 wait 不断膨胀
+        return httpx.Response(400, json={"error": "slow_down"})
+
+    with _transport(handler) as http:
+        result = auth.device_code_poll(
+            "DC-1", interval=5, timeout_s=12, http=http,
+            now=lambda: clock["t"],
+            sleep=lambda s: (slept.append(s), clock.__setitem__("t", clock["t"] + s)))
+
+    assert result is None
+    assert clock["t"] <= 12  # 绝不冲过 deadline
