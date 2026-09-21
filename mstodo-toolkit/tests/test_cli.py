@@ -296,3 +296,68 @@ def test_fields_mask_trims_each_item(logged_in, graph, capsys):
         {"id": "L1", "displayName": "任务", "isOwner": True, "wellknownListName": "defaultList"}]}))
     _, parsed = run(["list-lists", "--fields", "id,displayName"], capsys)
     assert parsed["data"] == [{"id": "L1", "displayName": "任务"}]
+
+
+def test_schema_all_lists_every_body_operation(logged_in, capsys):
+    """自省应列出全部 6 个有请求体的操作。"""
+    _, parsed = run(["schema", "--all"], capsys)
+    assert set(parsed["data"]) == {
+        "create-list", "update-list", "create-task", "update-task",
+        "create-checklist-item", "update-checklist-item"}
+
+
+def test_schema_single_operation_shows_union_and_enum(logged_in, capsys):
+    """单操作查询应展示方法、字段类型（含 union）与枚举。"""
+    _, parsed = run(["schema", "create-task"], capsys)
+    assert parsed["data"]["method"] == "POST"
+    assert parsed["data"]["fields"]["body"]["type"] == ["str", "object"]
+    assert parsed["data"]["fields"]["importance"]["enum"] == ["low", "normal", "high"]
+
+
+def test_schema_unknown_operation_is_a_usage_error(logged_in, capsys):
+    """未知操作应被转成 EXIT_USAGE + UNKNOWN_COMMAND。"""
+    code, parsed = run(["schema", "move-tasks"], capsys)
+    assert code == env.EXIT_USAGE
+    assert parsed["error"]["code"] == "UNKNOWN_COMMAND"
+
+
+def test_schema_needs_no_login(cache_dir, capsys):
+    """自省是纯本地操作，不该要求先登录。"""
+    code, _ = run(["schema", "--all"], capsys)
+    assert code == env.EXIT_OK
+
+
+def test_raw_passes_path_and_body_through(logged_in, graph, capsys):
+    """raw 应原样透传路径与请求体。"""
+    graph["replies"].append(httpx.Response(200, json={"value": [{"id": "X"}]}))
+    run(["raw", "--method", "POST", "--path", "/me/todo/lists/L1/tasks/T1/linkedResources",
+         "--body", '{"applicationName":"demo"}'], capsys)
+    method, url, sent = graph["calls"][0]
+    assert method == "POST"
+    assert url.endswith("/me/todo/lists/L1/tasks/T1/linkedResources")
+    assert sent == {"applicationName": "demo"}
+
+
+def test_raw_does_not_strip_odata_noise(logged_in, graph, capsys):
+    """逃生舱必须原样返回，包括 @odata 噪音。"""
+    graph["replies"].append(httpx.Response(200, json={"id": "X", "@odata.etag": "W/\"e\""}))
+    _, parsed = run(["raw", "--method", "GET", "--path", "/me/todo/lists/L1"], capsys)
+    assert parsed["data"]["@odata.etag"] == 'W/"e"'
+
+
+def test_raw_dry_run_reports_the_call(logged_in, graph, capsys):
+    """raw 的 --dry-run 应报告预期的 API 调用。"""
+    code, parsed = run(["raw", "--method", "DELETE", "--path", "/me/todo/lists/L1",
+                        "--dry-run"], capsys)
+    assert code == env.EXIT_DRY_RUN
+    assert parsed["data"]["would_call"] == "DELETE /me/todo/lists/L1"
+    assert parsed["metadata"]["dry_run"] is True
+    assert graph["calls"] == []
+
+
+def test_delete_list_dry_run_does_not_call_graph(logged_in, graph, capsys):
+    """资源命令的 --dry-run 也应报告预期调用，不真正发请求。"""
+    code, parsed = run(["delete-list", "--list", "L1", "--dry-run"], capsys)
+    assert code == env.EXIT_DRY_RUN
+    assert parsed["data"]["would_call"] == "DELETE /me/todo/lists/L1"
+    assert graph["calls"] == []

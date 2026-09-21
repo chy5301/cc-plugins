@@ -67,6 +67,56 @@ def resolve_token() -> str:
 
 
 # --------------------------------------------------------------------------
+# 自省与逃生舱
+# --------------------------------------------------------------------------
+
+def cmd_schema(args: argparse.Namespace) -> None:
+    """输出请求体字段 schema。自省不需要登录。"""
+    if args.all:
+        env.output(schemas.all_schemas(), command="schema", fields=args.fields)
+    try:
+        env.output(schemas.get_schema(args.operation), command="schema", fields=args.fields)
+    except KeyError:
+        env.fail("UNKNOWN_COMMAND", f"没有名为 {args.operation!r} 的有请求体操作",
+                 suggestion=f"用 `schema --all` 查看全部；"
+                            f"可用操作: {', '.join(sorted(schemas.all_schemas()))}",
+                 exit_code=env.EXIT_USAGE)
+
+
+def cmd_raw(args: argparse.Namespace) -> None:
+    """通用透传：对任意 Graph 端点发任意请求体。
+
+    这是 schema 的兜底逃生舱，linkedResources / attachments / delta 都靠它。
+    不剥 OData 噪音、不做 schema 校验，原样返回。
+    """
+    try:
+        body = json.loads(args.body) if args.body else None
+    except json.JSONDecodeError as exc:
+        env.fail("INVALID_PARAMETER", f"--body 不是合法 JSON：{exc}",
+                 exit_code=env.EXIT_USAGE)
+
+    if args.dry_run:
+        env.output({"would_call": f"{args.method} {args.path}", "body": body},
+                   command="raw", dry_run=True, fields=args.fields,
+                   exit_code=env.EXIT_DRY_RUN)
+
+    token = resolve_token()
+    started = time.time()
+    http = client.make_client()
+    try:
+        resp = client.request(args.method, args.path, http=http, token=token, body=body)
+        if resp.status_code >= 400:
+            client.handle_response(resp)   # 抛 GraphError
+        payload = resp.json() if resp.content else None
+        env.output(payload, command="raw",
+                   took_ms=int((time.time() - started) * 1000), fields=args.fields)
+    except client.GraphError as exc:
+        env.fail(exc.code, exc.message, exit_code=client.status_to_exit(exc.status))
+    finally:
+        http.close()
+
+
+# --------------------------------------------------------------------------
 # 认证子命令
 # --------------------------------------------------------------------------
 
@@ -301,6 +351,8 @@ COMMAND_MAP: dict[str, Callable[[argparse.Namespace], None]] = {
     "auth-complete": cmd_auth_complete,
     "auth-status": cmd_auth_status,
     "auth-logout": cmd_auth_logout,
+    "schema": cmd_schema,
+    "raw": cmd_raw,
 }
 COMMAND_MAP.update({
     # 用默认参数在定义时绑定 name，避免闭包晚绑定（所有 lambda 共享同一个循环变量）
@@ -329,6 +381,18 @@ def build_parser() -> JsonArgumentParser:
     add_global_options(p)
 
     p = sub.add_parser("auth-logout", help="删除本机 token 缓存")
+    add_global_options(p)
+
+    p = sub.add_parser("schema", help="输出某操作的请求体字段 schema（构造 --body 前查询）")
+    p.add_argument("operation", nargs="?", help="操作名，如 create-task")
+    p.add_argument("--all", action="store_true", help="输出全部操作的 schema")
+    add_global_options(p)
+
+    p = sub.add_parser("raw", help="通用透传：对任意 Graph 端点发任意请求体（逃生舱）")
+    p.add_argument("--method", required=True,
+                   choices=["GET", "POST", "PATCH", "PUT", "DELETE"])
+    p.add_argument("--path", required=True, help="相对 /v1.0 的路径，如 /me/todo/lists")
+    p.add_argument("--body", default=None, help="请求体 JSON")
     add_global_options(p)
 
     _LOCATOR_HELP = {"list": "清单 id", "task": "任务 id", "item": "子任务 id"}
