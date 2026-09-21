@@ -7,7 +7,12 @@ from __future__ import annotations
 
 import copy
 import os
+import re
 from typing import Any
+
+
+class InvalidDatetimeFormat(ValueError):
+    """日期时间字符串格式不合法。"""
 
 # 默认时区。Graph 同时接受 Windows 名与 IANA 名（官方 dateTimeTimeZone 的
 # "Additional time zones" 列表显式含 Asia/Shanghai），此处取 IANA 名——
@@ -15,8 +20,9 @@ from typing import Any
 DEFAULT_TIMEZONE = "Asia/Shanghai"
 
 # 这些字段在 Graph 里是 dateTimeTimeZone 嵌套对象
+# completedDateTime 是 Graph 的只读字段（不出现在请求体中），故不在此集合里
 DATETIME_FIELDS = frozenset({
-    "dueDateTime", "reminderDateTime", "startDateTime", "completedDateTime",
+    "dueDateTime", "reminderDateTime", "startDateTime",
 })
 
 _STATUS_ENUM = ["notStarted", "inProgress", "completed", "waitingOnOthers", "deferred"]
@@ -118,12 +124,33 @@ def default_timezone() -> str:
 
 
 def expand_datetime(value: Any) -> Any:
-    """把日期简写展开为 Graph 的 dateTimeTimeZone 嵌套对象。"""
+    """把日期简写展开为 Graph 的 dateTimeTimeZone 嵌套对象。
+
+    接受的字符串格式：
+    - YYYY-MM-DD（展开为 YYYY-MM-DDTHH:MM:SS）
+    - YYYY-MM-DDTHH:MM:SS（可包含小数秒）
+
+    非字符串、非 dict 的值原样透传（类型校验由 validate_body 负责）。
+    """
     if isinstance(value, dict):
         return value
     if not isinstance(value, str):
         return value
-    stamp = f"{value}T00:00:00" if len(value) == 10 else value
+
+    # 验证日期形状：YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS（含小数秒）
+    date_pattern = r'^\d{4}-\d{2}-\d{2}$'
+    datetime_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$'
+
+    if re.match(date_pattern, value):
+        stamp = f"{value}T00:00:00"
+    elif re.match(datetime_pattern, value):
+        stamp = value
+    else:
+        raise InvalidDatetimeFormat(
+            f"日期时间格式应为 'YYYY-MM-DD' 或 'YYYY-MM-DDTHH:MM:SS'，"
+            f"实际为: {value!r}"
+        )
+
     return {"dateTime": stamp, "timeZone": default_timezone()}
 
 
@@ -135,13 +162,25 @@ def expand_body_field(value: Any) -> Any:
 
 
 def normalize_body(operation: str, body: dict) -> dict:
-    """展开日期与 body 字段。不修改调用方传入的 dict。"""
+    """展开日期与 body 字段。
+
+    仅展开该操作 schema 里声明的字段。未声明的字段原样透传。
+    不修改调用方传入的 dict。
+
+    可能抛出 InvalidDatetimeFormat（若日期字符串形状不合法）。
+    """
+    schema = OPERATION_SCHEMAS[operation]
+    declared_fields = schema["fields"]
     result = copy.deepcopy(body)
+
     for key in list(result):
+        if key not in declared_fields:
+            continue  # 未声明的字段原样透传
         if key in DATETIME_FIELDS:
             result[key] = expand_datetime(result[key])
         elif key == "body":
             result[key] = expand_body_field(result[key])
+
     return result
 
 

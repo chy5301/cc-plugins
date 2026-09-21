@@ -122,3 +122,53 @@ def test_all_schemas_covers_every_body_operation():
         "create-task", "update-task",
         "create-checklist-item", "update-checklist-item",
     }
+
+
+# Finding 1 修复：normalize_body 应仅展开 schema 声明的字段
+def test_normalize_body_does_not_expand_undeclared_body_field():
+    """create-list 不声明 body 字段，所以不应展开。"""
+    result = schemas.normalize_body("create-list", {"body": "oops"})
+    assert result["body"] == "oops"  # 保持字符串不变
+
+
+def test_normalize_body_expands_declared_body_field():
+    """create-task 声明 body 字段，应该正常展开。"""
+    result = schemas.normalize_body("create-task", {"title": "x", "body": "文本"})
+    assert result["body"] == {"content": "文本", "contentType": "text"}
+
+
+# Finding 2 修复：expand_datetime 应验证日期形状
+def test_expand_datetime_rejects_invalid_shape_not_a_date():
+    """10 个字符但不是日期格式的字符串应被拒绝。"""
+    with pytest.raises(schemas.InvalidDatetimeFormat):
+        schemas.expand_datetime("not-a-date")
+
+
+def test_expand_datetime_rejects_invalid_shape_short_date():
+    """YYYY-M-D（缺少 0 padding）应被拒绝。"""
+    with pytest.raises(schemas.InvalidDatetimeFormat):
+        schemas.expand_datetime("2026-4-5")
+
+
+def test_expand_datetime_rejects_invalid_shape_trailing_space():
+    """日期字符串含尾随空格应被拒绝。"""
+    with pytest.raises(schemas.InvalidDatetimeFormat):
+        schemas.expand_datetime("2026-04-05 ")
+
+
+def test_expand_datetime_accepts_valid_date():
+    """合法的 YYYY-MM-DD 格式应正常工作。"""
+    result = schemas.expand_datetime("2026-04-05")
+    assert result["dateTime"] == "2026-04-05T00:00:00"
+
+
+def test_expand_datetime_accepts_valid_datetime():
+    """合法的 YYYY-MM-DDTHH:MM:SS 格式应正常工作。"""
+    result = schemas.expand_datetime("2026-04-05T14:30:00")
+    assert result["dateTime"] == "2026-04-05T14:30:00"
+
+
+def test_expand_datetime_accepts_valid_datetime_with_fractional_seconds():
+    """带小数秒的合法时间戳应正常工作。"""
+    result = schemas.expand_datetime("2026-04-05T14:30:00.123")
+    assert result["dateTime"] == "2026-04-05T14:30:00.123"
