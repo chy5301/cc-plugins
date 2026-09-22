@@ -1,0 +1,10 @@
+{
+  "name": "mstodo-toolkit",
+  "description": "Microsoft To Do 一站式工具箱。提供 7 个 Skills 覆盖任务与清单的完整生命周期管理，包括增删改查、状态推进、子任务、跨清单聚合查询、整理与每日回顾。",
+  "version": "0.1.0",
+  "author": {
+    "name": "chy5301"
+  },
+  "homepage": "https://github.com/chy5301/cc-plugins",
+  "repository": "https://github.com/chy5301/cc-plugins"
+}
