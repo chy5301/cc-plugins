@@ -228,4 +228,4 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py raw --method GET \
 | P3 | `lists`/`tasks` 集合的默认页大小与 `nextLink` 形态 | **未能校准**——探针账号数据量过小（2 个清单 / 16 个任务），两个端点均未触发 `nextLink`。这不是「分页不存在」的证据，只是探针数据量不够大，够不到分页边界 | 分页实现保持不变（服务端强制分页的假设不变），但没有拿到第一手的页大小数字 |
 | P4 | `common` tenant 是否可用于个人账号登录 | 登录成功 | `MSTODO_TENANT` 默认值维持 `common` |
 | P5 | `create-task` 能否内联 `checklistItems`（deep insert） | 支持：返回 `201`，且实际落地 2 个子项（未被静默忽略） | 建带子任务的任务一次 `create-task` 请求即可，不需要 `1 + N` 次请求 |
-| P6 | `timeZone` 是否接受 IANA 名（`Asia/Shanghai`） | 两种写法（`Asia/Shanghai` 与 `China Standard Time`）均返回 `201`；但**读回时一律归一化为 `UTC`**，提交 `+08:00` 的 `09:00` 回显为 `UTC` 的前一日 `16:00`，换算正确但时区本身不被保留 | 默认时区维持 `Asia/Shanghai`（IANA 名）；同时在文档中明确「读回比对必须先换算，不得做字符串比较」，见「日期与时区」节 |
+| P6 | `timeZone` 是否接受 IANA 名（`Asia/Shanghai`） | 两种写法（`Asia/Shanghai` 与 `China Standard Time`）均返回 `201`；但**读回时一律归一化为 `UTC`**，且不是单纯的时区换算——`dueDateTime` 日期保留、时刻被丢弃（提交 `+08:00` 的 `09:00` 回显为当日零点对应的 UTC 表示 `16:00`，即前一日 `16:00`），详见「日期与时区」节 | 默认时区维持 `Asia/Shanghai`（IANA 名）；同时在文档中明确「读回比对必须先换算，不得做字符串比较，也不得假设两者代表同一时刻」，见「日期与时区」节 |
