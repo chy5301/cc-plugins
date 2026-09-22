@@ -11,7 +11,7 @@
 
 ## 前置条件
 
-- **`DIDA365_API_TOKEN`**（必需）：在滴答清单网页版 头像→设置→账户与安全→API 口令 创建。未设置时所有子命令会以退出码 2 失败并提示——**唯一例外是 `--dry-run`**：预演本身不发起 API 调用，即使 Token 完全未设置也会正常返回退出码 `10`。
+- **`DIDA365_API_TOKEN`**（必需）：在滴答清单网页版 头像→设置→账户与安全→API 口令 创建。未设置时所有子命令会以退出码 2 失败并提示——**有两个例外**：一是 `--dry-run`，预演本身不发起 API 调用，即使 Token 完全未设置也会正常返回退出码 `10`；二是 `schema` 子命令，它本身不发起 API 调用，无论是否加 `--dry-run` 都不需要 Token，退出码 `0`。
 - **`DIDA365_API_DOMAIN`**（可选）：国内版默认 `api.dida365.com`，国际版（TickTick）设为 `api.ticktick.com`。
 
 设置方式由用户选择：`~/.claude/settings.json` 的 `env` 字段、shell 的 `export`、或其他 secrets 管理工具。首次配置请触发 `setup-guide` Skill。
