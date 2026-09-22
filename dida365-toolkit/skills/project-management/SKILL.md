@@ -1,7 +1,7 @@
 ---
 name: project-management
 description: |
-  管理滴答清单项目（清单）。当用户提到"创建项目""新建清单""查看所有项目""修改项目""删除项目""重命名项目""list projects""create project""rename project""project management""我有哪些清单""看看我的项目"时使用。
+  管理滴答清单项目（清单）。当用户点名 "滴答清单""滴答""TickTick"，或本次对话已在操作滴答清单，并要求查看所有项目、新建/修改/删除/重命名清单时使用。清单里的任务请用 task-crud。若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
 version: 0.2.0
 tools: Bash
 ---

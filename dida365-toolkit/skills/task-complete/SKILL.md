@@ -1,7 +1,7 @@
 ---
 name: task-complete
 description: |
-  标记滴答清单任务为已完成（非"放弃"——放弃任务请使用 task-crud 的 update-task --status 1）。当用户提到"完成任务""标记完成""做完了""打勾""勾掉""mark complete""check off task""finish task""这个任务搞定了"时使用。
+  标记滴答清单任务为已完成（非"放弃"——放弃任务请使用 task-crud 的 update-task --status 1）。当用户点名 "滴答清单""滴答""TickTick"，或本次对话已在操作滴答清单，并要求完成任务、标记完成、做完了、打勾、勾掉、这个任务搞定了时使用。若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
 version: 0.2.0
 tools: Bash
 ---
