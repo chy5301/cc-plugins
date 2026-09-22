@@ -41,6 +41,13 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py create-task --list <listId> \
   --body '{"title":"写季度报告","dueDateTime":"2026-04-05"}'
 ```
 
+`schema create-task` 声明的字段里包含 `importance`、`status`、`categories`——**创建时**如果已经想好这些值，可以在同一个 `--body` 里一次性设好，不必先建任务再补一次 `update-task`：
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py create-task --list <listId> \
+  --body '{"title":"写季度报告","importance":"high","status":"inProgress","categories":["工作"]}'
+```
+
 ### 查看任务详情 `get-task`
 
 ```bash
@@ -54,7 +61,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py update-task --list <listId> -
   --body '{"title":"写季度报告（修订版）"}'
 ```
 
-改 `status`（完成/进行中/挂起等）或 `importance`（优先级）不在本 skill 范围，见下方「边界」一节转 `task-status`。
+对**已存在**任务改 `status`（完成/进行中/挂起等）或 `importance`（优先级）不在本 skill 范围，转 `task-status`——但 `task-status` 只处理 `update-task`，**创建时**的初始值仍是本 skill 的事，见上方「创建任务 `create-task`」一节，不必先建后改。分类（`categories`）同理：创建时直接在 `--body` 里设；后续对已有任务做归类整理转 `task-organize`。
 
 ### 删除任务 `delete-task`（不可逆，先 `--dry-run`）
 
@@ -121,24 +128,33 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py create-task --list <listId> \
   --body '{"title":"提醒开会","dueDateTime":{"dateTime":"2026-04-05T09:00:00","timeZone":"Asia/Shanghai"}}'
 ```
 
-## 读回时日期被归一化为 UTC，这不是写入失败（Task 0 探针 P6 实测结论）
+## `dueDateTime` 读回后日期不变、但时刻会被丢弃（Task 0 探针 P6 实测结论，2026-09-22 订正）
 
-Task 0 探针提交了同一时刻的两种时区写法：
+Task 0 探针对 `dueDateTime` 提交了同一时刻的两种时区写法：
 
 - `{"dateTime": "2026-12-31T09:00:00", "timeZone": "Asia/Shanghai"}`
 - `{"dateTime": "2026-12-31T09:00:00", "timeZone": "China Standard Time"}`
 
-两次都返回 `201`，但读回时 Graph 把两者统一归一化为：
+两次都返回 `201`，读回时 Graph 把两者统一归一化为：
 
 ```json
 {"dateTime": "2026-12-30T16:00:00.0000000", "timeZone": "UTC"}
 ```
 
-换算本身是对的（`+08:00` 的 `12-31 09:00` 就是 UTC 的 `12-30 16:00`），但**写入时提交的时区不会被原样保留**。
+**这不是单纯的时区换算。** 对照：
 
-- 写完任务后读回确认，看到的 `dateTime`/`timeZone` 会与提交值**字面不同**，这是正常现象，**不要据此判断写入失败**。
-- **更不要去"修正"这个值再提交一次**——每次"修正"提交后，读回依然会被再次归一化为 UTC，只会陷入无意义的循环。
-- 任何"读回比对"都必须先把提交值和回显值换算到同一时区（或同一时刻的绝对值）再比较，**不能直接做字符串比较**——`"2026-12-31T09:00:00"` 和 `"2026-12-30T16:00:00.0000000"` 这两个字符串永远不相等，即使它们代表同一时刻。
+| | |
+| --- | --- |
+| 提交 | `2026-12-31T09:00:00`，`+08:00` |
+| 若只做时区换算，应得 | `2026-12-31T01:00:00Z` |
+| **Graph 实际回显** | `2026-12-30T16:00:00Z` |
+| 回显换算回 `+08:00` | `2026-12-31T`**`00:00`**`:00` |
+
+回显换算回提交时区后，**日期（`12-31`）保留了，但时刻从 `09:00` 变成了 `00:00`**——Graph 把提交的时刻部分丢弃、当作当天零点处理，再转成 UTC，不是保留 `09:00` 原样换算。这与 To Do 的产品语义一致：**`dueDateTime` 是日期粒度的截止日期，不是精确到时刻的字段**；需要具体时刻的语义由 `reminderDateTime`（提醒）承载。
+
+- 写完任务后读回确认，看到的 `dateTime`/`timeZone` 会与提交值**字面不同**，这是正常现象，**不要据此判断写入失败，更不要去"修正"这个值再提交一次**——每次"修正"提交后，读回依然会被同样处理，只会陷入无意义的循环。
+- 任何"读回比对"都**不能做字符串比较，也不能假设两者代表同一时刻**——换算到同一时区后两者只是**同一日期**，具体时刻已经丢失。如果业务需要"当天某个具体时刻"的语义（比如"明天下午 3 点前"），`dueDateTime` 承载不了这个信息。
+- **观测范围有限，不要外推**：以上结论只来自**一次**探测，且**只针对 `dueDateTime`**。`reminderDateTime` 与 `startDateTime` 未被这次探针验证过，按产品语义提醒理应保留具体时刻，但没有实测证据——遇到这两个字段时不要假设它们与 `dueDateTime` 行为相同，也不要假设不同，有疑问以实测或官方文档为准。
 
 ## `body` 同名陷阱
 
@@ -163,6 +179,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py create-task --list <listId> \
 
 ## 边界
 
-- 改任务状态（`notStarted`/`inProgress`/`completed`/`waitingOnOthers`/`deferred`）或 `importance` 优先级 → 转 `task-status`
-- 在清单之间移动任务 → 转 `task-organize`
+边界按**动作**划分，不按**字段**划分——创建任务（哪怕一次性设好状态、优先级、分类）归本 skill；对**已存在**任务的后续调整才转出：
+
+- 对**已存在**任务改状态（`notStarted`/`inProgress`/`completed`/`waitingOnOthers`/`deferred`）或 `importance` 优先级 → 转 `task-status`（创建时的初始值直接在 `create-task` 里设，见上文，不必建完再转 `task-status` 改一次）
+- 对**已存在**任务做分类整理，或在清单之间移动任务 → 转 `task-organize`（创建时的初始 `categories` 直接在 `create-task` 里设，见上文）
 - 遇到退出码 `2` + `CONFIG_ERROR` 或退出码 `4` + `AUTH_EXPIRED` → 转 `setup-guide` 完成（重新）登录

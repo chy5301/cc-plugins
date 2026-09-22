@@ -23,6 +23,10 @@ version: 0.1.0
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py <子命令> [参数]
 ```
 
+## 本 skill 的范围：只改**已存在**任务的状态/优先级
+
+本 skill 全篇只讲 `update-task`，处理的是**已存在**任务的状态流转与优先级调整。如果是**新建**任务时就想好了初始状态、优先级或分类（`categories`），直接在 `create-task` 的 `--body` 里一次性设好即可，不必先建任务再跑一次 `update-task` 补上——那属于 `task-crud` 的"创建任务"一节，不在本 skill 范围。
+
 ## 没有 `complete-task` 子命令
 
 **本插件没有独立的 `complete-task` 子命令。** 标记任务完成，就是对 `update-task` 传 `status: completed`：
@@ -107,4 +111,5 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py schema update-task
 ## 边界
 
 - 改标题、描述、截止日期、提醒，或增删改勾选子任务 → 转 `task-crud`
+- **新建**任务时一并设置初始 `status`/`importance`/`categories` → 转 `task-crud`（在 `create-task` 的 `--body` 里直接设，不必建完再用本 skill 改一次）
 - 遇到退出码 `2` + `CONFIG_ERROR` 或退出码 `4` + `AUTH_EXPIRED` → 转 `setup-guide` 完成（重新）登录
