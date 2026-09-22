@@ -308,3 +308,245 @@ def test_cmd_schema_all_with_operation_conflicts(capsys):
     with pytest.raises(SystemExit) as e:
         cli.cmd_schema(argparse.Namespace(operation="create-task", all=True))
     assert e.value.code == cli.EXIT_USAGE
+
+
+# ── Task A：--fields 顶层字段掩码 ─────────────────────────────────────────────
+
+
+def test_apply_fields_filters_each_item_of_a_list():
+    data = [{"id": "1", "title": "a", "noise": "x"}, {"id": "2", "title": "b", "noise": "y"}]
+    assert cli.apply_fields(data, "id,title") == [
+        {"id": "1", "title": "a"}, {"id": "2", "title": "b"},
+    ]
+
+
+def test_apply_fields_filters_keys_of_a_dict():
+    assert cli.apply_fields({"id": "1", "title": "a", "noise": "x"}, "id") == {"id": "1"}
+
+
+def test_apply_fields_silently_drops_unknown_keys():
+    assert cli.apply_fields([{"id": "1"}], "id,nope") == [{"id": "1"}]
+
+
+def test_apply_fields_none_or_empty_means_no_trim():
+    data = [{"id": "1", "title": "a"}]
+    assert cli.apply_fields(data, None) == data
+    assert cli.apply_fields(data, "") == data
+
+
+def test_apply_fields_preserves_non_dict_items_in_list_as_is():
+    """list 中混有非 dict 元素时，非 dict 项原样保留不被裁剪（不对它调 .items()）。"""
+    data = [{"id": "1", "title": "a"}, "raw-string", {"id": "2"}]
+    result = cli.apply_fields(data, "id")
+    assert result == [{"id": "1"}, "raw-string", {"id": "2"}]
+
+
+def test_fields_trims_real_response_via_run_body_command(monkeypatch, capsys):
+    import argparse
+    import json
+
+    class _FakeRespFields:
+        status_code = 200
+        content = b'{"id":"T1","title":"x","extra":"y"}'
+
+        def json(self):
+            return {"id": "T1", "title": "x", "extra": "y"}
+
+    class _FakeClientFields:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def request(self, method, path, json=None):
+            return _FakeRespFields()
+
+    monkeypatch.setattr(cli, "get_client", lambda: _FakeClientFields())
+    args = argparse.Namespace(project="P1", body='{"title":"x"}', dry_run=False, fields="id,title")
+    cli.run_body_command("create-task", args, {"project": "P1"})
+    out = json.loads(capsys.readouterr().out)
+    assert out["data"] == {"id": "T1", "title": "x"}
+
+
+def test_fields_and_dry_run_available_on_schema_and_raw():
+    parser = cli.build_parser()
+    args = parser.parse_args(["schema", "create-task", "--fields", "type", "--dry-run"])
+    assert args.fields == "type"
+    assert args.dry_run is True
+    args2 = parser.parse_args(
+        ["raw", "--method", "GET", "--path", "/project", "--dry-run", "--fields", "id"]
+    )
+    assert args2.dry_run is True
+    assert args2.fields == "id"
+
+
+# ── Task A：--dry-run 预演 ────────────────────────────────────────────────────
+
+
+def _boom_get_client():
+    raise AssertionError("dry-run 不应调用 get_client()/发出真实请求")
+
+
+def test_dry_run_create_task_would_call_shape(monkeypatch, capsys):
+    import argparse
+    import json
+
+    import pytest
+    monkeypatch.setattr(cli, "get_client", _boom_get_client)
+    args = argparse.Namespace(project="P1", body='{"title":"买菜"}', dry_run=True, fields=None)
+    with pytest.raises(SystemExit) as e:
+        cli.run_body_command("create-task", args, {"project": "P1"})
+    assert e.value.code == cli.EXIT_DRY_RUN
+    out = json.loads(capsys.readouterr().out)
+    assert out["success"] is True
+    assert out["data"]["would_call"] == "POST /open/v1/task"
+    assert out["data"]["body"] == {"title": "买菜", "projectId": "P1"}
+    assert out["metadata"]["dry_run"] is True
+    assert out["metadata"]["command"] == "dida365_cli create-task"
+
+
+def test_dry_run_update_task_would_call_shape(monkeypatch, capsys):
+    import argparse
+    import json
+
+    import pytest
+    monkeypatch.setattr(cli, "get_client", _boom_get_client)
+    args = argparse.Namespace(task_id="T1", project="P1", body='{"title":"新标题"}',
+                              dry_run=True, fields=None)
+    with pytest.raises(SystemExit) as e:
+        cli.run_body_command("update-task", args, {"task_id": "T1", "project": "P1"})
+    assert e.value.code == cli.EXIT_DRY_RUN
+    out = json.loads(capsys.readouterr().out)
+    assert out["data"]["would_call"] == "POST /open/v1/task/T1"
+
+
+def test_dry_run_move_tasks(monkeypatch, capsys):
+    import argparse
+    import json
+
+    import pytest
+    monkeypatch.setattr(cli, "get_client", _boom_get_client)
+    payload = '[{"fromProjectId":"A","toProjectId":"B","taskId":"T1"}]'
+    args = argparse.Namespace(body=payload, dry_run=True, fields=None)
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_move_tasks(args)
+    assert e.value.code == cli.EXIT_DRY_RUN
+    out = json.loads(capsys.readouterr().out)
+    assert out["data"]["would_call"] == "POST /open/v1/task/move"
+    assert out["data"]["body"] == [{"fromProjectId": "A", "toProjectId": "B", "taskId": "T1"}]
+
+
+def test_dry_run_raw(monkeypatch, capsys):
+    import argparse
+    import json
+
+    import pytest
+    monkeypatch.setattr(cli, "get_client", _boom_get_client)
+    args = argparse.Namespace(method="post", path="/task/T1", body='{"id":"T1"}',
+                              dry_run=True, fields=None)
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_raw(args)
+    assert e.value.code == cli.EXIT_DRY_RUN
+    out = json.loads(capsys.readouterr().out)
+    assert out["data"]["would_call"] == "POST /open/v1/task/T1"
+    assert out["data"]["body"] == {"id": "T1"}
+
+
+def test_dry_run_delete_task_returns_would_call_and_exits_10(monkeypatch, capsys):
+    import argparse
+    import json
+
+    import pytest
+    monkeypatch.setattr(cli, "get_client", _boom_get_client)
+    args = argparse.Namespace(project_id="P1", task_id="T1", dry_run=True, fields=None)
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_delete_task(args)
+    assert e.value.code == cli.EXIT_DRY_RUN
+    out = json.loads(capsys.readouterr().out)
+    assert out["data"]["would_call"] == "DELETE /open/v1/project/P1/task/T1"
+    assert out["data"]["body"] is None
+    assert out["metadata"]["dry_run"] is True
+
+
+def test_dry_run_available_on_list_projects(monkeypatch, capsys):
+    import pytest
+    monkeypatch.setattr(cli, "get_client", _boom_get_client)
+    parser = cli.build_parser()
+    args = parser.parse_args(["list-projects", "--dry-run"])
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_list_projects(args)
+    assert e.value.code == cli.EXIT_DRY_RUN
+
+
+def test_dry_run_does_not_require_token(monkeypatch, capsys):
+    """dry-run 必须在取 token 之前返回：即使没有设置 DIDA365_API_TOKEN 也应正常预演。"""
+    import argparse
+
+    import pytest
+    monkeypatch.setattr(cli, "TOKEN", "")
+    monkeypatch.setattr(cli, "get_client", _boom_get_client)
+    args = argparse.Namespace(project_id="P1", task_id="T1", dry_run=True, fields=None)
+    with pytest.raises(SystemExit) as e:
+        cli.cmd_delete_task(args)
+    assert e.value.code == cli.EXIT_DRY_RUN
+
+
+# ── Task A：metadata 四字段出现条件 ───────────────────────────────────────────
+
+
+def test_exit_dry_run_constant_value():
+    assert cli.EXIT_DRY_RUN == 10
+
+
+def test_metadata_command_always_present(capsys):
+    import json
+    cli.output({"id": "1"}, command="get-task")
+    out = json.loads(capsys.readouterr().out)
+    assert out["metadata"]["command"] == "dida365_cli get-task"
+
+
+def test_metadata_took_ms_only_when_real_call(capsys):
+    import json
+    cli.output({"id": "1"}, command="get-project")
+    out = json.loads(capsys.readouterr().out)
+    assert "took_ms" not in out["metadata"]
+    cli.output({"id": "1"}, command="get-project", took_ms=42)
+    out2 = json.loads(capsys.readouterr().out)
+    assert out2["metadata"]["took_ms"] == 42
+
+
+def test_metadata_result_count_only_for_list(capsys):
+    import json
+    cli.output([{"id": "1"}, {"id": "2"}], command="list-projects")
+    out = json.loads(capsys.readouterr().out)
+    assert out["metadata"]["result_count"] == 2
+    cli.output({"id": "1"}, command="get-project")
+    out2 = json.loads(capsys.readouterr().out)
+    assert "result_count" not in out2["metadata"]
+
+
+def test_metadata_dry_run_only_when_dry_run(capsys):
+    import json
+
+    import pytest
+    cli.output({"id": "1"}, command="get-project")
+    out = json.loads(capsys.readouterr().out)
+    assert "dry_run" not in out["metadata"]
+    with pytest.raises(SystemExit) as e:
+        cli.output({"would_call": "x"}, command="delete-task", dry_run=True,
+                   exit_code=cli.EXIT_DRY_RUN)
+    assert e.value.code == cli.EXIT_DRY_RUN
+    out2 = json.loads(capsys.readouterr().out)
+    assert out2["metadata"]["dry_run"] is True
+
+
+def test_output_without_exit_code_does_not_exit(capsys):
+    """未显式传 exit_code 时 output() 不主动退出（保持既有行为，回归安全）。"""
+    import json
+    cli.output({"id": "1"}, command="get-project")
+    out = json.loads(capsys.readouterr().out)
+    assert out["success"] is True
