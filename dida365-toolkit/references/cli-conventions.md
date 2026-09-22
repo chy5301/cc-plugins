@@ -11,7 +11,7 @@
 
 ## 前置条件
 
-- **`DIDA365_API_TOKEN`**（必需）：在滴答清单网页版 头像→设置→账户与安全→API 口令 创建。未设置时所有子命令会以退出码 2 失败并提示。
+- **`DIDA365_API_TOKEN`**（必需）：在滴答清单网页版 头像→设置→账户与安全→API 口令 创建。未设置时所有子命令会以退出码 2 失败并提示——**唯一例外是 `--dry-run`**：预演本身不发起 API 调用，即使 Token 完全未设置也会正常返回退出码 `10`。
 - **`DIDA365_API_DOMAIN`**（可选）：国内版默认 `api.dida365.com`，国际版（TickTick）设为 `api.ticktick.com`。
 
 设置方式由用户选择：`~/.claude/settings.json` 的 `env` 字段、shell 的 `export`、或其他 secrets 管理工具。首次配置请触发 `setup-guide` Skill。
@@ -46,6 +46,8 @@ uv run ... filter-tasks --body '{"priority":[5]}' --fields id,title,dueDate,prio
 
 未知字段会被静默丢弃；空字段串等同于不裁剪。
 
+**与 `--dry-run` 组合时**：掩码作用对象是 `--dry-run` 的响应结构 `{would_call, body}`，而非正式调用的业务数据。若 `--fields` 传入的字段名与这两个 key 都不匹配（例如误传了业务字段名 `id`、`name`），`data` 会被裁剪为空对象 `{}`——这是预期行为，并非 bug；`--dry-run` 场景下 `--fields` 应传 `would_call`、`body` 或两者。
+
 ### `--dry-run`
 
 只输出将要发起的 API 调用（不真正执行），退出码 `10`。响应 `data` 形如：
@@ -58,6 +60,8 @@ uv run ... filter-tasks --body '{"priority":[5]}' --fields id,title,dueDate,prio
 ```
 
 `metadata` 中会带 `"dry_run": true` 标识。**破坏性操作（`delete-*` / `update-*` / `move-tasks`）建议先 dry-run 预演**，确认请求路径与请求体无误后再正式调用。
+
+`schema` 子命令是例外：它本身不发起 API 调用，`--dry-run` 可被解析但会被忽略，直接返回 schema 查询结果（退出码 0），不会输出 `would_call`/`body` 或退出码 `10`。
 
 ---
 
