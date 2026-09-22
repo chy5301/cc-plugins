@@ -3,7 +3,8 @@ name: setup-guide
 description: >-
   配置并登录 Microsoft To Do。当用户首次使用 Microsoft To Do 工具，或点名
   "Microsoft To Do""MS To Do""微软待办""微软 To Do"并提到"登录""配置""设置"
-  "连接""重新授权""退出登录"时使用。也在其他 Microsoft To Do skill 遇到退出码
+  "连接""重新授权""退出登录"，或本次对话已在操作 Microsoft To Do 并提到"登录""配置"
+  "设置""连接""重新授权""退出登录"时使用。也在其他 Microsoft To Do skill 遇到退出码
   2（CONFIG_ERROR，未登录）或退出码 4（AUTH_EXPIRED，凭据失效）时转入。
   若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
 version: 0.1.0
