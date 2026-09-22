@@ -73,6 +73,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py create-list \
 
 `displayName` 是唯一必填字段。构造 `--body` 前建议先跑一次 `schema create-list` 确认字段。
 
+`create-list` 响应里返回的 `id` 就是新清单的 `listId`——如果建这个清单是为了接收 `task-organize` 移动过来的任务（比如用户要求"归档到一个新建的清单"），把这个 `id` 原样带给 `task-organize` 当目标清单 `--list` 用，不需要再另外查一次。
+
 ## 重命名清单 `update-list`（前置检查见上文）
 
 确认目标清单不是内置清单之后：

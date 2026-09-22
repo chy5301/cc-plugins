@@ -67,6 +67,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py get-task --list <源清单id>
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-checklist-items --list <源清单id> --task <taskId>
 ```
 
+**目标清单必须已存在**：第 2 步的 `--list <目标清单id>` 要求这个 `listId` 已经真实存在。如果用户要求"移到一个新建的清单"（比如"归档到一个新的『归档』清单"），**先转 `list-management` 用 `create-list` 建好目标清单、拿到返回的新 `id`**，再回来用这个 `id` 继续第 2 步——不要在 `task-organize` 里自行推断或跳过建清单这一步，这两个 skill 的定位就是不用互相猜。
+
 **第 2 步**：在目标清单 `create-task`，把标题、描述、日期、优先级、分类等字段与子任务一并带过去。Task 0 探针实测：`create-task` 的请求体里内联 `checklistItems` 数组会被 Graph 真实落地（不是被静默忽略），所以子任务和主任务**一次 `create-task` 请求就能一起带过去**，不需要先建任务再逐个补子任务：
 
 ```bash
@@ -82,6 +84,23 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py create-task --list <目标清
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py delete-task --list <源清单id> --task <taskId> --dry-run
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py delete-task --list <源清单id> --task <taskId>
 ```
+
+### 第 3 步失败或超时：这时候是"可能多一份"，不是"可能丢了"
+
+第 2 步失败的处置很明确（见上文：立刻停下，原任务原样保留）。但**第 3 步 `delete-task` 失败或超时是编排里第二个真正危险的分支**，处置方式完全不同——因为此时新任务**已经建好、已经拿到新 id 了**，数据不存在丢失的可能，唯一的不确定性是"旧任务到底删没删掉"。遇到这种情况：
+
+1. **不要慌，也不要盲目重试删除**，更不要因为"移动看起来失败了"就重新跑一遍第 1–2 步——那样只会在目标清单里再建出第三份。
+2. **用旧的 `listId`/`taskId` 跑一次 `get-task` 确认真实状态**：
+
+   ```bash
+   uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py get-task --list <源清单id> --task <taskId>
+   ```
+
+3. 如果旧任务**仍在**（`get-task` 能查到）：说明删除确实没成功，**只重试第 3 步这一次删除**，不要碰第 1、2 步。
+4. 如果旧任务**已不在**（`get-task` 返回"未找到"）：说明移动其实已经成功，`delete-task` 报的错很可能只是响应丢失或超时，不是删除本身失败——不需要再做任何事。
+5. 无论落在哪种情况，都要把"当前是多一份还是已经完成"明确报告给用户，不要让用户以为移动失败了但实际上任务已经在新清单里。
+
+第 1 步（`get-task` / `list-checklist-items` 读取）失败则简单得多：这两条都是只读操作，不涉及任何写入，原任务不受影响，直接重试或中止都是安全的。
 
 ### 顺序不可颠倒
 
