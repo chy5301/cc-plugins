@@ -1,7 +1,7 @@
 ---
 name: setup-guide
 description: |
-  配置滴答清单 API Token 和验证连接。当用户首次使用滴答清单工具、提到"配置滴答清单""设置 API Token""dida365 setup""ticktick setup""连接滴答清单"时使用。
+  配置滴答清单 API Token 并验证连接。当用户首次使用滴答清单工具，或点名 "滴答清单""滴答""TickTick"，或本次对话已在操作滴答清单，并提到"配置""设置 Token""连接""dida365 setup""ticktick setup"时使用。也在其他滴答清单 skill 因退出码 2（CONFIG_ERROR，Token 未设置）或退出码 4（HTTP_401/403，Token 无效）报错时转入。若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
 version: 0.1.0
 tools: Bash
 ---

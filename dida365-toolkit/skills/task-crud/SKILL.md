@@ -1,7 +1,7 @@
 ---
 name: task-crud
 description: |
-  创建、查看、更新、删除、放弃滴答清单任务。当用户提到"新建任务""添加待办""修改任务""删除任务""编辑任务标题""放弃任务""不做了""取消任务""create task""update task""delete task""abandon task""add todo""在滴答清单里加一个..."时使用。
+  创建、查看、更新、删除、放弃滴答清单任务。当用户点名 "滴答清单""滴答""TickTick"，或本次对话已在操作滴答清单，并要求新建任务、修改任务、删除任务、编辑任务标题、放弃任务、不做了、取消任务时使用，例如"在滴答清单里加一个..."。若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
 version: 0.2.0
 tools: Bash
 ---
@@ -60,14 +60,16 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
 **必需**：位置参数 `task_id`、`--project`。只在 `--body` 中传要修改的字段。
 **字段定义**：`schema update-task`。
 
-**状态说明**：`status` 取值 0=未完成、1=放弃、2=已完成。
+**状态说明**：任务的 `status` 取值 `-1`=已放弃、`0`=未完成、`2`=已完成（官方 Open API 定义）。`update-task` 只接受 `-1` 与 `0`；`1` 是**子任务**的"已完成"值，不能用于任务。
 
 **放弃任务**：
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
   --project <项目ID> \
-  --body '{"status":1}'
+  --body '{"status":-1}'
 ```
+
+恢复被放弃的任务：同样的命令，改传 `--body '{"status":0}'`。恢复后 `completedTime` 仍保留放弃时的时间，服务端不会清除，不要据此判断任务状态，以 `status` 为准。
 
 **标记完成**：推荐使用 task-complete skill 的 `complete-task` 子命令（专用 API 端点，非 status 更新）。
 

@@ -226,6 +226,7 @@ POST /open/v1/task/{taskId}
 | Body | sortOrder | 否 | 排序值 | integer |
 | Body | tags | 否 | 标签字符串数组，如 `["工作","紧急"]` | list |
 | Body | items | 否 | 子任务列表（结构同创建任务） | list |
+| Body | status | 否 | 任务状态：`-1`=放弃、`0`=未完成。官方文档的参数表未列出此字段，但 Task 模型定义了它（2026-09-23 实测：`-1` 放弃成功，服务端会写入 `completedTime`；`0` 可以恢复，但 `completedTime` 不会被清除；传 `1` 返回 500 `task status is invalid`）。CLI 只开放这两个值，完成请用「完成任务」端点 | integer |
 
 **响应**：200 返回 [Task](#task-1) 对象（含 `kind` 字段）
 
@@ -584,12 +585,12 @@ DELETE /open/v1/project/{projectId}
 | repeatFlag | 循环规则（RRULE 格式），如 `"RRULE:FREQ=DAILY;INTERVAL=1"` | string |
 | sortOrder | 排序值 | integer (int64) |
 | startDate | 开始时间 | string (date-time) |
-| status | 完成状态。0=未完成, 2=已完成 | integer (int32) |
+| status | 任务状态。-1=已放弃, 0=未完成, 2=已完成 | integer (int32) |
 | tags | 标签字符串数组，如 `["工作","紧急"]` | string[] |
 | timeZone | 时区 | string |
 | kind | 类型：`TEXT` / `NOTE` / `CHECKLIST` | string |
 
-> **注意**：任务的 status 完成值为 **2**，子任务（ChecklistItem）的 status 完成值为 **1**。
+> **注意**：任务的 status 完成值为 **2**、放弃值为 **-1**；子任务（ChecklistItem）的 status 完成值为 **1**。不要把子任务的 `1` 当成任务的"放弃"。
 
 ### Project（项目）
 
