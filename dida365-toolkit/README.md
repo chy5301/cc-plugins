@@ -12,6 +12,13 @@ Skill (Markdown 指令) → Bash: uv run dida365_cli.py <command> → 滴答清�
 
 兼容 Claude Code（plugin 形式）和其他 AI Agent（skill 形式）。
 
+## 0.5.0 变更
+
+- **通用选项**：所有子命令都支持 `--fields`（顶层字段掩码，减少返回体积）和 `--dry-run`（只输出将要发起的请求，不真正执行，退出码 `10`，不需要 Token）
+- **响应信封**：成功时带 `metadata`（`command`、`took_ms`、`result_count` 等）；退出码为 `0` 成功 / `1` 一般错误 / `2` 参数错误 / `3` 不存在 / `4` 权限不足 / `10` dry-run。详见 [references/cli-conventions.md](references/cli-conventions.md)
+- **触发限定平台**：7 个 skill 只在用户点名"滴答清单""滴答""TickTick"，或本次对话已在操作滴答清单时触发；若同时装有其他待办工具（如 mstodo-toolkit）且无法确定平台，会先向用户确认
+- **放弃任务**：`update-task` 支持 `--body '{"status":-1}'`（`0` 可恢复）。任务的 status 是 `-1` 放弃 / `0` 未完成 / `2` 已完成，不要与子任务的 `1`（已完成）混淆
+
 ## 0.4.0 调用方式变更（破坏性）
 
 自 0.4.0 起，有请求体的命令（create-task/update-task/create-project/update-project/
@@ -49,7 +56,7 @@ claude --plugin-dir ./dida365-toolkit
 
 | 变量 | 必需 | 说明 |
 |------|------|------|
-| `DIDA365_API_TOKEN` | 是 | 滴答清单 API Token（设置→账户→API Token） |
+| `DIDA365_API_TOKEN` | 是 | 滴答清单 API 口令（网页版 头像→设置→账户与安全→API 口令） |
 | `DIDA365_API_DOMAIN` | 否 | API 域名，默认 `api.dida365.com`，国际版用 `api.ticktick.com` |
 
 ## Skills
@@ -57,7 +64,7 @@ claude --plugin-dir ./dida365-toolkit
 | Skill | 说明 |
 |-------|------|
 | `setup-guide` | 配置 API Token 和验证连接 |
-| `task-crud` | 创建、查看、更新、删除任务（含子任务） |
+| `task-crud` | 创建、查看、更新、删除、放弃任务（含子任务） |
 | `task-complete` | 标记任务为已完成 |
 | `task-organize` | 在项目间移动和整理任务 |
 | `task-query` | 按优先级/标签/日期/状态筛选任务，查询已完成任务 |
@@ -81,6 +88,7 @@ uv run scripts/dida365_cli.py delete-project <projectId>
 uv run scripts/dida365_cli.py get-task <projectId> <taskId>
 uv run scripts/dida365_cli.py create-task --project <projectId> --body '{"title":"标题"}'
 uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --body '{"title":"新标题"}'
+uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --body '{"status":-1}'   # 放弃任务
 uv run scripts/dida365_cli.py complete-task <projectId> <taskId>
 uv run scripts/dida365_cli.py delete-task <projectId> <taskId>
 uv run scripts/dida365_cli.py move-tasks --body '[{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId1>"},{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId2>"}]'
