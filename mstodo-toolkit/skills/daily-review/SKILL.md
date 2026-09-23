@@ -19,7 +19,7 @@ version: 0.1.0
 
 ## 前置条件
 
-遇到退出码 `2`（`CONFIG_ERROR`，本机从未登录）或退出码 `4`（`AUTH_EXPIRED`，凭据已失效，或全部清单权限不足触发的 `HTTP_403`），转入 `setup-guide` 完成（重新）登录后再继续，不要在本 skill 里自行处理认证。
+遇到退出码 `2`（`CONFIG_ERROR`，本机从未登录）或退出码 `4`（`AUTH_EXPIRED`，凭据已失效，或全部清单权限不足触发的 `HTTP_403`），转入 `setup-guide` 完成（重新）登录后再继续，不要在本 skill 里自行处理认证。注意：退出码 `4` 但错误码**不是** `AUTH_EXPIRED`（例如 Graph 返回 `403` 的 `ErrorAccessDenied`，常见于对别人共享给你的清单没有写权限）时，重新登录解决不了问题，不要转 `setup-guide`，应把 `error.message` 转述给用户（`list-tasks --list all` 全部清单都返回 `401`/`403` 时报的 `HTTP_403` 除外，那是授权问题，仍转 `setup-guide`）。
 
 第一次使用本插件任何子命令前，建议先读 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`，了解响应信封、全局选项与退出码的通用约定。
 
@@ -71,7 +71,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-tasks --list all \
 
 **如果要基于 `partial_failures` 做任何后续动作（比如提示用户"再查一次某个清单"），先看 `reason`**：`reason == "list_enumeration_truncated"` 的条目 `listId` 是 `null`，不对应具体清单，不能拿去重试或点名某个清单。
 
-**退出码 `5`（`PARTIAL_FAILURE`）复述**：`success` 是 `false`，但 `data` 里仍有已取到的数据，不要当纯错误丢弃，也不要把残缺数据当全量用；`metadata.retry_after_seconds` 给出的等待秒数必须尊重，不要立即重试。**其余非 0 退出码都是终态失败**（明确可重试的只有退出码 `6` 的 `AUTH_PENDING` 和退出码 `5` 且给出 `retry_after_seconds` 的情况），遇到时先停下读 `error.suggestion`，不要换参数硬试。
+**退出码 `5`（`PARTIAL_FAILURE`）复述**：`success` 是 `false`，但 `data` 里仍有已取到的数据，不要当纯错误丢弃，也不要把残缺数据当全量用；`metadata.retry_after_seconds` 给出的等待秒数必须尊重，不要立即重试。**其余非 0 退出码都是终态失败**（明确可重试的只有退出码 `6` 的 `AUTH_PENDING`、退出码 `5` 且给出 `retry_after_seconds` 的情况，以及退出码 `1` 的 `AUTH_REFRESH_FAILED` / `NETWORK_ERROR`（暂时性故障，稍等片刻重试一次即可）），遇到时先停下读 `error.suggestion`，不要换参数硬试。
 
 **为什么这对 `daily-review` 比对 `task-query` 更危险**：`daily-review` 的产出是直接给用户看的"今天要做什么"。如果数据残缺却不声明，用户会把这份不全的列表当成全部——漏看的任务可能就是今天最要紧的那件。所以只要 `truncated` 为 `true`，或 `partial_failures` 非空，**回顾报告的开头就必须明确写出"有 N 个清单没有取到完整数据"**（N 可以数 `partial_failures` 里 `reason` 为 `"error"` / `"truncated"` 的条目，加上 `list_enumeration_truncated` 为真时未被枚举到的清单），不能默默呈现一份看起来完整、实际不全的清单。这条比一般 skill 里"提一下退出码 5"的要求更严格：**这里是必须做、且要放在报告最前面的动作，不是可选的免责声明**。
 

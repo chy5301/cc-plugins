@@ -65,7 +65,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-tasks --list all --field
 
 ### `--max-pages N`
 
-集合端点（`list-lists` / `list-tasks` / `list-checklist-items`，含跨清单聚合的两个分页维度）最多跟随几页。`0`（默认）表示不限，即**默认跟完所有页**。触发上限时结果不完整，见下方「分页」与「跨清单聚合」两节。
+集合端点（`list-lists` / `list-tasks` / `list-checklist-items`，含跨清单聚合的两个分页维度）最多跟随几页。`0`（默认）表示不限，即**默认跟完所有页**。负数会被拒绝（`INVALID_PARAMETER`，退出码 `2`），不存在"-1 表示不限"这种写法。触发上限时结果不完整，见下方「分页」与「跨清单聚合」两节。
 
 ---
 
@@ -123,7 +123,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-tasks --list all --field
 常见错误码：
 
 - `CONFIG_ERROR`：本机从未登录（退出码 `2`）
-- `AUTH_EXPIRED`：登录过但凭据已失效（退出码 `4`）
+- `AUTH_EXPIRED`：登录过但凭据已失效（退出码 `4`）。只有认证服务明确返回 `invalid_grant` 这类错误时才会报它
+- `AUTH_REFRESH_FAILED`：刷新凭据时认证服务暂时不可用（5xx、限流、返回非 JSON 等），**登录态并未失效**（退出码 `1`）。稍后重试即可，不要引导用户重新登录
+- `NETWORK_ERROR`：连接失败、DNS 解析失败、代理错误或超时（退出码 `1`）。任何子命令都可能遇到
+- `INVALID_RESPONSE`：Graph 返回了 2xx 但响应体不是 JSON（常见于代理拦截返回的 HTML 页，退出码 `1`）
 - `INVALID_PARAMETER`：参数/JSON/日期格式/必填字段不合法（退出码 `2`）
 - `UNKNOWN_COMMAND`：`schema` 查询了不存在的操作名（退出码 `2`）
 - `AUTH_PENDING`：设备码轮询超时（退出码 `6`）
@@ -222,7 +225,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-tasks --list all --statu
 
 | `reason` | 含义 | `data` 中是否有该清单已取到的数据 | `listId` |
 |---|---|---|---|
-| `"error"` | 该清单的 `$batch` 子请求硬失败（4xx/5xx 或响应缺失） | 否 | 该清单的真实 id |
+| `"error"` | 该清单的 `$batch` 子请求硬失败（4xx/5xx 或响应缺失），或跟续页时失败（4xx/5xx 或网络错误，`status` 为 `0` 表示网络错误）。续页失败时该清单已取到的前几页也会丢弃 | 否 | 该清单的真实 id |
 | `"truncated"` | 该清单自身的任务分页命中 `--max-pages` 上限 | 是（已取到的部分） | 该清单的真实 id |
 | `"list_enumeration_truncated"` | 清单枚举本身（第一维分页）被 `--max-pages` 截断，本条不对应任何具体清单 | 不适用——未被枚举到的清单压根没有被尝试 | **`null`** |
 

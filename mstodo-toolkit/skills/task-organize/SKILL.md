@@ -15,7 +15,7 @@ version: 0.1.0
 
 ## 前置条件
 
-遇到退出码 `2`（`CONFIG_ERROR`，本机从未登录）或退出码 `4`（`AUTH_EXPIRED`，凭据已失效），转入 `setup-guide` 完成（重新）登录后再继续，不要在本 skill 里自行处理认证。
+遇到退出码 `2`（`CONFIG_ERROR`，本机从未登录）或退出码 `4`（`AUTH_EXPIRED`，凭据已失效），转入 `setup-guide` 完成（重新）登录后再继续，不要在本 skill 里自行处理认证。注意：退出码 `4` 但错误码**不是** `AUTH_EXPIRED`（例如 Graph 返回 `403` 的 `ErrorAccessDenied`，常见于对别人共享给你的清单没有写权限）时，重新登录解决不了问题，不要转 `setup-guide`，应把 `error.message` 转述给用户。
 
 第一次使用本插件任何子命令前，建议先读 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`，了解响应信封、全局选项与退出码的通用约定。
 
@@ -163,7 +163,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py update-task --list <listId> -
 
 ### 不要盲目重试
 
-本 skill 调用的子命令里，明确"可重试"的只有两种情况：退出码 `6`（`AUTH_PENDING`，属于 `setup-guide` 的登录流程）、退出码 `5` 且 `metadata.retry_after_seconds` 给出了等待时长。**其余非 0 退出码（如 `2` 的 `INVALID_PARAMETER`、`3` 的"未找到"、`4` 的 `AUTH_EXPIRED`）都是终态失败**，遇到时先停下来读 `error.suggestion`，而不是换个参数再试一次。尤其是第 2 步 `create-task` 失败时，**不要反复重试导致重复创建**——先确认失败原因（读 `error.suggestion`），必要时向用户确认后再决定是否重试一次。
+本 skill 调用的子命令里，明确"可重试"的只有三种情况：退出码 `6`（`AUTH_PENDING`，属于 `setup-guide` 的登录流程）、退出码 `5` 且 `metadata.retry_after_seconds` 给出了等待时长、退出码 `1` 且错误码为 `AUTH_REFRESH_FAILED` 或 `NETWORK_ERROR`（暂时性故障，稍等片刻重试一次即可）。**其余非 0 退出码（如 `2` 的 `INVALID_PARAMETER`、`3` 的"未找到"、`4` 的 `AUTH_EXPIRED`）都是终态失败**，遇到时先停下来读 `error.suggestion`，而不是换个参数再试一次。尤其是第 2 步 `create-task` 失败时，**不要反复重试导致重复创建**——先确认失败原因（读 `error.suggestion`），必要时向用户确认后再决定是否重试一次。
 
 ## 边界
 
