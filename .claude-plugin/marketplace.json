@@ -34,6 +34,13 @@
       "description": "滴答清单一站式工具箱。提供 7 个 Skills 覆盖任务和项目的完整生命周期管理，包括增删改查、完成、移动、高级筛选和每日回顾。",
       "category": "integration",
       "tags": ["dida365", "ticktick", "task-management", "productivity"]
+    },
+    {
+      "name": "mstodo-toolkit",
+      "source": "./mstodo-toolkit",
+      "description": "Microsoft To Do 一站式工具箱。提供 7 个 Skills 覆盖任务与清单的完整生命周期管理，包括增删改查、状态推进、子任务、跨清单聚合查询、整理与每日回顾。",
+      "category": "integration",
+      "tags": ["microsoft-todo", "ms-todo", "task-management", "graph-api"]
     }
   ]
 }

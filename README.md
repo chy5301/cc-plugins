@@ -10,6 +10,7 @@ Claude Code 插件集合。
 | [gitee-toolkit](./gitee-toolkit/) | Gitee 一站式工具箱。集成 Gitee MCP Server 与 DevOps Skills，覆盖 PR、Issue、Release、仓库探索等操作。 |
 | [agent-native-design-guide](./agent-native-design-guide/) | Agent-Native 软件设计指南。提供面向 AI Agent 的软件设计决策框架、十原则体系和架构模式。 |
 | [dida365-toolkit](./dida365-toolkit/) | 滴答清单一站式工具箱。提供 7 个 Skills 覆盖任务和项目的完整生命周期管理，包括增删改查、完成、移动、高级筛选和每日回顾。 |
+| [mstodo-toolkit](./mstodo-toolkit/) | Microsoft To Do 一站式工具箱。提供 7 个 Skills 覆盖任务与清单的完整生命周期管理，包括增删改查、状态推进、子任务、跨清单聚合查询、整理与每日回顾。 |
 
 ## 安装
 
@@ -23,6 +24,7 @@ Claude Code 插件集合。
 /plugin install gitee-toolkit@cc-plugins
 /plugin install agent-native-design-guide@cc-plugins
 /plugin install dida365-toolkit@cc-plugins
+/plugin install mstodo-toolkit@cc-plugins
 ```
 
 ### 方式 2：本地加载

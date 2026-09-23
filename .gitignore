@@ -16,3 +16,5 @@ Thumbs.db
 
 # 本地工作流文档（spec / plan）
 docs/
+# SDD 工作区（ledger / brief / review package）
+.superpowers/

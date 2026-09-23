@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` 体系发布到 marketplace。当前包含四个插件：**structured-workflow**（大型工程任务的结构化管理工作流）、**gitee-toolkit**（Gitee 一站式工具箱）、**agent-native-design-guide**（Agent-Native 软件设计指南）和 **dida365-toolkit**（滴答清单一站式工具箱）。
+cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` 体系发布到 marketplace。当前包含五个插件：**structured-workflow**（大型工程任务的结构化管理工作流）、**gitee-toolkit**（Gitee 一站式工具箱）、**agent-native-design-guide**（Agent-Native 软件设计指南）、**dida365-toolkit**（滴答清单一站式工具箱）和 **mstodo-toolkit**（Microsoft To Do 一站式工具箱）。
 
 仓库本身不包含可构建或可测试的应用代码——所有内容都是 Markdown 命令定义、Python 辅助脚本和 JSON 配置。
 
@@ -29,6 +29,12 @@ dida365-toolkit/                   # dida365-toolkit 插件根目录
   scripts/                         # Python CLI 脚本（dida365_cli.py，通过 uv run 调用滴答清单 Open API）
   skills/                          # 7 个 Skills（setup-guide, task-crud, task-complete, task-organize, task-query, project-management, daily-review）
   references/                      # 参考文档（api-reference.md）
+mstodo-toolkit/                    # mstodo-toolkit 插件根目录
+  .claude-plugin/plugin.json       # 插件元数据
+  scripts/                         # Python CLI（mstodo_cli.py + mstodo_lib/ 六个模块，uv run 调用 Graph To Do API）
+  skills/                          # 7 个 Skills（setup-guide, task-crud, task-status, task-query, list-management, task-organize, daily-review）
+  references/                      # 参考文档（cli-conventions.md, api-reference.md）
+  tests/                           # CLI 单测（pytest + httpx.MockTransport）
 ```
 
 ## 插件架构关键概念
@@ -65,6 +71,7 @@ uv run structured-workflow/scripts/setup_autoexec.py
 claude --plugin-dir ./structured-workflow
 claude --plugin-dir ./gitee-toolkit
 claude --plugin-dir ./dida365-toolkit
+claude --plugin-dir ./mstodo-toolkit
 ```
 
 ## 开发约定
@@ -75,6 +82,8 @@ claude --plugin-dir ./dida365-toolkit
 - `structured-workflow` 的自动执行功能（`/task-auto`）依赖外部插件 `ralph-loop`
 - `gitee-toolkit` 的 Skills 基于 [oschina/gitee-agent-skills](https://github.com/oschina/gitee-agent-skills) v1.0.0 独立维护，不自动同步上游
 - `dida365-toolkit` 采用纯 Skill + Python CLI 脚本架构（无 MCP），通过 `uv run` 调用 `scripts/dida365_cli.py` 操作滴答清单 Open API，需设置环境变量 `DIDA365_API_TOKEN`
+- `mstodo-toolkit` 采用纯 Skill + Python CLI 架构（无 MCP），通过 `uv run` 调用 `scripts/mstodo_cli.py` 操作 Microsoft Graph 的 To Do API；认证走 OAuth2 设备码流，token 缓存在 `~/` 下的独立目录，**不进仓库、不参与 `/sync-config`**
+- `mstodo-toolkit` 的 CLI 只做原子操作与只读扇出聚合；跨资源的写事务（如"移动任务"）刻意不做成子命令，由 skill 编排 Agent 完成
 
 ### 版本号更新
 
