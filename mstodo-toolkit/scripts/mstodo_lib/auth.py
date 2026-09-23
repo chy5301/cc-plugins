@@ -60,9 +60,15 @@ def write_cache(token_response: dict, *, now: float | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(path.parent, 0o700)
     tmp = path.with_name(path.name + f".tmp.{os.getpid()}")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, path)
+    # 直接以 0600 创建：先按 umask 建再 chmod 会留下一段全局可读的窗口
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, ensure_ascii=False))
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def read_cache() -> dict | None:
@@ -100,6 +106,21 @@ def auth_base() -> str:
     return f"https://login.microsoftonline.com/{tenant()}/oauth2/v2.0"
 
 
+def _json_or_none(resp: httpx.Response) -> dict | None:
+    """解析认证服务的响应体；不是 JSON 对象（如代理返回的 HTML 错误页）时返回 None。"""
+    try:
+        payload = resp.json()
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _describe(resp: httpx.Response, payload: dict | None) -> str:
+    if payload is None:
+        return f"HTTP {resp.status_code}：{resp.text[:200]}"
+    return json.dumps(payload, ensure_ascii=False)
+
+
 @contextlib.contextmanager
 def _client_session(http: httpx.Client | None = None):
     """获取客户端会话。若调用方未传入，则创建一个临时的并在退出时关闭。"""
@@ -117,9 +138,9 @@ def device_code_start(*, http: httpx.Client | None = None) -> dict:
     with _client_session(http) as client:
         resp = client.post(f"{auth_base()}/devicecode",
                            data={"client_id": client_id(), "scope": SCOPE})
-        payload = resp.json()
-        if resp.status_code != 200:
-            raise DeviceCodeError("other", json.dumps(payload, ensure_ascii=False))
+        payload = _json_or_none(resp)
+        if resp.status_code != 200 or payload is None:
+            raise DeviceCodeError("other", _describe(resp, payload))
         return payload
 
 
@@ -152,7 +173,9 @@ def device_code_poll(device_code: str, *, interval: int, timeout_s: float,
                 "client_id": client_id(),
                 "device_code": device_code,
             })
-            payload = resp.json()
+            payload = _json_or_none(resp)
+            if payload is None:
+                raise DeviceCodeError("other", _describe(resp, payload))
             if resp.status_code == 200:
                 return payload
             err = payload.get("error", "")
@@ -188,8 +211,27 @@ class AuthExpiredError(Exception):
         self.detail = detail
 
 
+class AuthTransientError(Exception):
+    """refresh 请求失败，但不能证明凭据已失效（认证服务 5xx/429、返回非 JSON 等）。
+
+    调用方映射为退出码 1 + AUTH_REFRESH_FAILED：稍后重试即可，不要引导用户重新登录。
+    """
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+# 只有这些错误能证明 refresh token 本身不可用，需要重新登录
+_EXPIRED_GRANT_ERRORS = frozenset({"invalid_grant", "interaction_required"})
+
+
 def refresh(refresh_token: str, *, http: httpx.Client | None = None) -> dict:
-    """用 refresh_token 换新的 access_token。失败抛 AuthExpiredError。"""
+    """用 refresh_token 换新的 access_token。
+
+    凭据确已失效（400 + invalid_grant 等）抛 AuthExpiredError；
+    其他失败（服务端错误、限流、非 JSON 响应）抛 AuthTransientError。
+    """
     with _client_session(http) as client:
         resp = client.post(f"{auth_base()}/token", data={
             "grant_type": "refresh_token",
@@ -197,11 +239,14 @@ def refresh(refresh_token: str, *, http: httpx.Client | None = None) -> dict:
             "scope": SCOPE,
             "refresh_token": refresh_token,
         })
-        payload = resp.json()
-        if resp.status_code != 200:
+        payload = _json_or_none(resp)
+        if resp.status_code == 200 and payload is not None:
+            return payload
+        if (resp.status_code == 400 and payload is not None
+                and payload.get("error") in _EXPIRED_GRANT_ERRORS):
             raise AuthExpiredError(payload.get(
                 "error_description", json.dumps(payload, ensure_ascii=False)))
-        return payload
+        raise AuthTransientError(_describe(resp, payload))
 
 
 def get_access_token(*, http: httpx.Client | None = None, now=time.time) -> str:

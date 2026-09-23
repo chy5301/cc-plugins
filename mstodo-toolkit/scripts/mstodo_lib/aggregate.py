@@ -59,8 +59,18 @@ def batch_get(paths: dict[str, str], *, http: httpx.Client, token: str) -> dict[
     for group in chunk(keys, BATCH_LIMIT):
         payload = {"requests": [{"id": key, "method": "GET", "url": paths[key]}
                                 for key in group]}
-        resp = client.request("POST", "/$batch", http=http, token=token, body=payload)
-        envelope = client.handle_response(resp)
+        try:
+            envelope = client.handle_response(
+                client.request("POST", "/$batch", http=http, token=token, body=payload))
+        except (client.GraphError, httpx.TransportError) as exc:
+            # 整批请求失败（如 $batch 本身被限流）只算这一批的清单失败，
+            # 不能抛出去连带丢掉其他批次已取到的结果
+            status = getattr(exc, "status", 0)
+            retry_after = getattr(exc, "retry_after", None)
+            for key in group:
+                results[key] = {"status": status or 0, "body": {},
+                                "retry_after": retry_after}
+            continue
 
         for item in (envelope or {}).get("responses", []):
             raw_retry = (item.get("headers") or {}).get("Retry-After")
@@ -107,7 +117,7 @@ def aggregate_tasks(lists: list, *, http: httpx.Client, token: str,
                              "status": 0, "retry_after": None, "reason": "error"})
             continue
 
-        if result["status"] >= 400:
+        if not 200 <= result["status"] < 300:
             failures.append({"listId": list_id, "displayName": display_name,
                              "status": result["status"],
                              "retry_after": result["retry_after"], "reason": "error"})
@@ -120,18 +130,34 @@ def aggregate_tasks(lists: list, *, http: httpx.Client, token: str,
         # 二维分页：此清单还有后续页时串行跟完
         next_url = body.get("@odata.nextLink")
         list_pages = 1
+        page_error: dict | None = None
         while next_url:
             if max_pages and list_pages >= max_pages:
                 failures.append({"listId": list_id, "displayName": display_name,
                                  "status": 0, "retry_after": None,
                                  "reason": "truncated"})
                 break
-            more = client.handle_response(
-                client.request("GET", next_url, http=http, token=token))
+            try:
+                more = client.handle_response(
+                    client.request("GET", next_url, http=http, token=token))
+            except client.GraphError as exc:
+                page_error = {"status": exc.status, "retry_after": exc.retry_after}
+                break
+            except httpx.TransportError:
+                page_error = {"status": 0, "retry_after": None}
+                break
             pages += 1
             list_pages += 1
             page_items.extend(more.get("value", []))
             next_url = more.get("@odata.nextLink")
+
+        if page_error is not None:
+            # 续页失败只算这一个清单失败，不能抛出去丢掉其他清单的结果。
+            # 已取到的前几页一并丢弃：reason="error" 的语义是"此清单无数据"，
+            # 混入残缺数据会让调用方误以为它是完整的。
+            failures.append({"listId": list_id, "displayName": display_name,
+                             **page_error, "reason": "error"})
+            continue
 
         items.extend(inject_list_identity(page_items, list_id=list_id,
                                           display_name=display_name))

@@ -489,3 +489,52 @@ def test_list_tasks_all_flags_list_enumeration_truncation(logged_in, graph, caps
     # 与"某清单任务分页截断"区分：这条 partial_failures 没有具体 listId
     assert any(f["reason"] == "list_enumeration_truncated"
               for f in parsed["metadata"]["partial_failures"])
+
+
+def test_network_error_yields_json_envelope_not_traceback(logged_in, monkeypatch, capsys):
+    def handler(request):
+        raise httpx.ConnectError("Name or service not known")
+
+    monkeypatch.setattr(cli.client, "make_client",
+                        lambda **kw: httpx.Client(transport=httpx.MockTransport(handler)))
+    code, parsed = run(["list-lists"], capsys)
+    assert code == env.EXIT_ERROR
+    assert parsed["error"]["code"] == "NETWORK_ERROR"
+
+
+def test_refresh_transient_failure_is_not_reported_as_auth_expired(cache_dir, monkeypatch, capsys):
+    def boom(**kw):
+        raise auth.AuthTransientError("HTTP 503")
+
+    monkeypatch.setattr(auth, "get_access_token", boom)
+    code, parsed = run(["list-lists"], capsys)
+    assert code == env.EXIT_ERROR
+    assert parsed["error"]["code"] == "AUTH_REFRESH_FAILED"
+    assert "auth-start" not in parsed["error"]["suggestion"]
+
+
+def test_negative_max_pages_is_usage_error(logged_in, graph, capsys):
+    code, parsed = run(["list-lists", "--max-pages", "-1"], capsys)
+    assert code == env.EXIT_USAGE
+    assert parsed["error"]["code"] == "INVALID_PARAMETER"
+    assert graph["calls"] == []
+
+
+def test_list_tasks_all_partial_message_counts_do_not_conflate_reasons(logged_in, graph, capsys):
+    """清单枚举被截断时，partial_failures 里多一条 listId=None 的伪条目。
+    "完整成功"的计数只能扣除真正的逐清单失败，不能用 len(partial_failures) 一刀切。"""
+    graph["replies"].extend([
+        httpx.Response(200, json={
+            "value": [{"id": "L1", "displayName": "工作"}, {"id": "L2", "displayName": "个人"}],
+            "@odata.nextLink": f"{cli.client.GRAPH_BASE}/more-lists"}),
+        httpx.Response(200, json={"responses": [
+            {"id": "L1", "status": 200, "body": {"value": [{"id": "T1"}]}},
+            {"id": "L2", "status": 429, "headers": {"Retry-After": "7"},
+             "body": {"error": {"code": "TooManyRequests", "message": "慢"}}}]}),
+    ])
+    code, parsed = run(["list-tasks", "--list", "all", "--max-pages", "1"], capsys)
+    assert code == env.EXIT_PARTIAL
+    msg = parsed["error"]["message"]
+    assert "已知 2 个清单中 1 个完整成功" in msg
+    assert "1 个清单请求失败" in msg
+    assert "被截断（data 中已含" not in msg   # 没有单清单分页截断，不能这样措辞

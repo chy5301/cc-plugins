@@ -343,3 +343,59 @@ def test_concurrent_refresh_leaves_cache_usable(cache_dir):
     assert cached["access_token"] in {"AT-A", "AT-B"}
     assert cached["refresh_token"] == "RT-NEW"
     assert [f.name for f in auth.cache_path().parent.iterdir()] == ["token.json"]
+
+
+def test_refresh_server_error_is_transient_not_expired(cache_dir):
+    """认证服务 5xx/429 时 refresh token 仍然有效，不能让 Agent 引导用户重新登录。"""
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+
+    with _transport(lambda r: httpx.Response(503, json={
+            "error": "temporarily_unavailable"})) as http, \
+            pytest.raises(auth.AuthTransientError):
+        auth.get_access_token(http=http, now=lambda: at)
+    # 缓存原样保留，下次还能用同一个 refresh token 重试
+    assert auth.read_cache()["refresh_token"] == TOKEN_RESPONSE["refresh_token"]
+
+
+def test_refresh_non_json_error_is_transient_not_traceback(cache_dir):
+    auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    at = 1_000_000.0 + 3599 - 200
+
+    with _transport(lambda r: httpx.Response(502, text="<html>Bad Gateway</html>")) as http, \
+            pytest.raises(auth.AuthTransientError):
+        auth.get_access_token(http=http, now=lambda: at)
+
+
+def test_device_code_start_non_json_error_raises_device_code_error(cache_dir):
+    with _transport(lambda r: httpx.Response(502, text="<html>Bad Gateway</html>")) as http, \
+            pytest.raises(auth.DeviceCodeError) as exc:
+        auth.device_code_start(http=http)
+    assert exc.value.kind == "other"
+    assert "502" in exc.value.detail
+
+
+def test_device_code_poll_non_json_error_raises_device_code_error(cache_dir):
+    with _transport(lambda r: httpx.Response(502, text="<html>Bad Gateway</html>")) as http, \
+            pytest.raises(auth.DeviceCodeError):
+        auth.device_code_poll("DC", interval=0, timeout_s=5, http=http,
+                              sleep=lambda s: None)
+
+
+def test_write_cache_file_is_never_world_readable(cache_dir, monkeypatch):
+    """临时文件必须以 0600 创建，而不是先按 umask 创建再 chmod。"""
+    seen = []
+    real_replace = os.replace
+
+    def spy(src, dst):
+        seen.append(os.stat(src).st_mode & 0o777)
+        return real_replace(src, dst)
+
+    old = os.umask(0o022)
+    try:
+        monkeypatch.setattr(auth.os, "replace", spy)
+        monkeypatch.setattr(auth.os, "chmod", lambda *a, **k: None)  # 去掉事后补救
+        auth.write_cache(TOKEN_RESPONSE, now=1_000_000.0)
+    finally:
+        os.umask(old)
+    assert seen == [0o600]

@@ -20,6 +20,7 @@ import json
 import time
 from collections.abc import Callable
 
+import httpx
 from mstodo_lib import aggregate, auth, client, schemas
 from mstodo_lib import envelope as env
 
@@ -38,13 +39,24 @@ class JsonArgumentParser(argparse.ArgumentParser):
                  exit_code=env.EXIT_USAGE)
 
 
+def _non_negative_int(value: str) -> int:
+    """--max-pages 只接受 >= 0；负数会被当作"开启上限"而静默截断结果。"""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"应为整数，收到 {value!r}") from None
+    if n < 0:
+        raise argparse.ArgumentTypeError(f"不能为负数（0 表示不限），收到 {n}")
+    return n
+
+
 def add_global_options(parser: argparse.ArgumentParser) -> None:
     """挂 --fields / --dry-run / --max-pages 全局选项。"""
     parser.add_argument("--fields", default=None,
                         help="顶层字段掩码，逗号分隔。返回大对象时优先使用")
     parser.add_argument("--dry-run", action="store_true",
                         help="只输出将要发起的 API 调用，不真正执行（退出码 10）")
-    parser.add_argument("--max-pages", type=int, default=0,
+    parser.add_argument("--max-pages", type=_non_negative_int, default=0,
                         help="集合端点最多跟随几页，0 表示不限。触发上限会标 truncated")
 
 
@@ -52,7 +64,8 @@ def resolve_token() -> str:
     """取 access_token，把认证异常映射为对应的信封与退出码。
 
     未登录 → 退出码 2 + CONFIG_ERROR（走完整引导）
-    refresh 失败 → 退出码 4 + AUTH_EXPIRED（只需重登）
+    凭据确已失效 → 退出码 4 + AUTH_EXPIRED（只需重登）
+    refresh 暂时失败 → 退出码 1 + AUTH_REFRESH_FAILED（稍后重试，不要重登）
     """
     try:
         return auth.get_access_token()
@@ -64,6 +77,10 @@ def resolve_token() -> str:
         env.fail("AUTH_EXPIRED", f"登录凭据已失效：{exc.detail}",
                  suggestion="重新运行 auth-start 登录（凭据过期不是配置问题）",
                  exit_code=env.EXIT_PERMISSION)
+    except auth.AuthTransientError as exc:
+        env.fail("AUTH_REFRESH_FAILED", f"刷新登录凭据失败：{exc.detail}",
+                 suggestion="通常是认证服务暂时不可用或网络问题，稍后重试即可；本机登录态未失效，无需重新登录",
+                 exit_code=env.EXIT_ERROR)
 
 
 # --------------------------------------------------------------------------
@@ -529,7 +546,14 @@ def build_parser() -> JsonArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     """主入口。"""
     args = build_parser().parse_args(argv)
-    COMMAND_MAP[args.command](args)
+    try:
+        COMMAND_MAP[args.command](args)
+    except httpx.TransportError as exc:
+        # 连接失败、DNS、代理错误、超时：任何子命令都可能遇到，统一在入口兜住，
+        # 保证输出永远是 JSON 信封而不是 traceback
+        env.fail("NETWORK_ERROR", f"网络请求失败：{type(exc).__name__}: {exc}",
+                 suggestion="检查网络连接或代理设置后重试",
+                 exit_code=env.EXIT_ERROR)
 
 
 if __name__ == "__main__":

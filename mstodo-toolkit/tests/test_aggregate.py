@@ -228,3 +228,91 @@ def test_aggregate_tasks_tags_hard_failures_with_error_reason_not_truncated():
         {"listId": "L1", "displayName": "工作", "status": 429, "retry_after": 5,
          "reason": "error"}]
     assert meta["truncated"] is False
+
+
+def test_aggregate_tasks_follow_up_page_error_is_partial_failure_not_crash():
+    """续页请求失败（429/503）只算这一个清单失败，不能让整个聚合抛异常丢掉其他清单。
+
+    该清单已取到的首页数据一并丢弃：reason="error" 的语义是"此清单无数据"，
+    混入残缺数据会让调用方误以为它是完整的。
+    """
+    lists = [{"id": "L1", "displayName": "工作"}, {"id": "L2", "displayName": "个人"}]
+
+    def handler(request):
+        if request.url.path.endswith("/$batch"):
+            return httpx.Response(200, json={"responses": [
+                {"id": "L1", "status": 200,
+                 "body": {"value": [{"id": "T1"}],
+                          "@odata.nextLink": f"{client.GRAPH_BASE}/more"}},
+                {"id": "L2", "status": 200, "body": {"value": [{"id": "T9"}]}}]})
+        return httpx.Response(429, headers={"Retry-After": "12"},
+                              json={"error": {"code": "TooManyRequests", "message": "慢"}})
+
+    with _client(handler) as http:
+        items, meta = aggregate.aggregate_tasks(lists, http=http, token="AT")
+
+    assert [i["id"] for i in items] == ["T9"]
+    assert meta["partial_failures"] == [
+        {"listId": "L1", "displayName": "工作", "status": 429, "retry_after": 12,
+         "reason": "error"}]
+    assert meta["retry_after_seconds"] == 12
+
+
+def test_aggregate_tasks_follow_up_page_network_error_is_partial_failure():
+    lists = [{"id": "L1", "displayName": "工作"}]
+
+    def handler(request):
+        if request.url.path.endswith("/$batch"):
+            return httpx.Response(200, json={"responses": [
+                {"id": "L1", "status": 200,
+                 "body": {"value": [{"id": "T1"}],
+                          "@odata.nextLink": f"{client.GRAPH_BASE}/more"}}]})
+        raise httpx.ConnectError("boom")
+
+    with _client(handler) as http:
+        items, meta = aggregate.aggregate_tasks(lists, http=http, token="AT")
+
+    assert items == []
+    assert meta["partial_failures"][0]["reason"] == "error"
+    assert meta["partial_failures"][0]["status"] == 0
+
+
+def test_aggregate_tasks_whole_batch_failure_only_fails_that_batch():
+    """清单超过 20 个时分多批。某一批的 $batch 请求本身被限流，只能让这一批的清单
+    记为失败，不能抛出去连带丢掉其他批次已取到的结果。"""
+    lists = [{"id": f"L{i}", "displayName": f"清单{i}"} for i in range(21)]
+    batches = []
+
+    def handler(request):
+        batches.append(request)
+        if len(batches) == 1:
+            ids = [r["id"] for r in __import__("json").loads(request.content)["requests"]]
+            return httpx.Response(200, json={"responses": [
+                {"id": i, "status": 200, "body": {"value": [{"id": f"T-{i}"}]}} for i in ids]})
+        return httpx.Response(429, headers={"Retry-After": "9"},
+                              json={"error": {"code": "TooManyRequests", "message": "慢"}})
+
+    with _client(handler) as http:
+        items, meta = aggregate.aggregate_tasks(lists, http=http, token="AT")
+
+    assert len(items) == 20
+    assert meta["partial_failures"] == [
+        {"listId": "L20", "displayName": "清单20", "status": 429, "retry_after": 9,
+         "reason": "error"}]
+    assert meta["retry_after_seconds"] == 9
+
+
+def test_aggregate_tasks_batch_network_error_is_failure_not_empty_success():
+    """整批网络错误记 status=0。0 不是 2xx，不能被当成"成功但没有任务"。"""
+    lists = [{"id": "L1", "displayName": "工作"}]
+
+    def handler(request):
+        raise httpx.ConnectError("boom")
+
+    with _client(handler) as http:
+        items, meta = aggregate.aggregate_tasks(lists, http=http, token="AT")
+
+    assert items == []
+    assert meta["partial_failures"] == [
+        {"listId": "L1", "displayName": "工作", "status": 0, "retry_after": None,
+         "reason": "error"}]

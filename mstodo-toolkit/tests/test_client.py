@@ -203,3 +203,11 @@ def test_get_collection_strips_item_odata_from_every_page():
     with _client(_paged_handler(pages)) as http:
         items, _ = client.get_collection("/me/todo/lists", http=http, token="AT")
     assert items == [{"id": "1"}, {"id": "2"}]
+
+
+def test_handle_response_non_json_2xx_raises_graph_error_not_decode_error():
+    resp = httpx.Response(200, text="<html>proxy</html>")
+    with pytest.raises(client.GraphError) as exc:
+        client.handle_response(resp)
+    assert exc.value.code == "INVALID_RESPONSE"
+    assert client.status_to_exit(exc.value.status) == 1

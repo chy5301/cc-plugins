@@ -80,7 +80,13 @@ def handle_response(resp: httpx.Response) -> Any:
     if (resp.status_code == 204 or not resp.content) and resp.status_code < 400:
         return None
     if resp.status_code < 400:
-        return strip_item_odata(resp.json())
+        try:
+            return strip_item_odata(resp.json())
+        except (json.JSONDecodeError, ValueError):
+            # 2xx 却不是 JSON（常见于代理返回的 HTML 页）：按一般错误报告，
+            # 不能让 JSONDecodeError 以 traceback 形式漏出去
+            raise GraphError(resp.status_code, "INVALID_RESPONSE",
+                             f"期望 JSON，收到：{resp.text[:200]}") from None
 
     retry_after = None
     raw_retry = resp.headers.get("Retry-After")
