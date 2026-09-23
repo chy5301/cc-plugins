@@ -56,6 +56,8 @@ Claude 会通过子代理并行探索代码库，执行系统性分析，设计�
 
 基于 ralph-loop 插件自动循环执行多个任务。支持指定阶段、任务范围和最大迭代次数。
 
+不想依赖 ralph-loop 时，可以改用并列的 `/task-auto-subagent`：由 coordinator 串行派遣 implementer 子代理执行任务，每个任务后做 spec 与代码质量两段 review，每个阶段结束自动派 phase-reviewer 回顾。
+
 ### 4. 阶段回顾
 
 ```
@@ -103,6 +105,7 @@ Claude 会通过子代理并行探索代码库，执行系统性分析，设计�
 | `/plan-adjust [变更]` | 增量计划变更 | 需调整计划时 |
 | `/task-exec [XX]` | 执行单个任务 | 日常执行 |
 | `/task-auto [--max N] [--all]` | 自动批量执行 | 连续自动执行多个任务时（需 ralph-loop 插件） |
+| `/task-auto-subagent [--all]` | Subagent 驱动的自动批量执行，附带 review | 连续自动执行且不想依赖 ralph-loop 时 |
 | `/phase-review [Phase]` | 阶段回顾 | 阶段完成后 |
 | `/workflow-abort [--reset] [原因]` | 终止 + 清理 | 需要放弃时 |
 | `/workflow-archive` | 归档清理 | 全部完成后 |
@@ -177,6 +180,7 @@ structured-workflow/
 │   ├── plan-adjust/SKILL.md     # 增量计划变更
 │   ├── phase-review/SKILL.md    # 阶段回顾
 │   ├── task-auto/SKILL.md       # 自动批量执行
+│   ├── task-auto-subagent/SKILL.md  # Subagent 驱动的自动批量执行
 │   ├── workflow-abort/SKILL.md  # 终止工作流（仅手动调用）
 │   └── workflow-archive/SKILL.md # 归档清理（仅手动调用）
 ├── scripts/
@@ -191,7 +195,8 @@ structured-workflow/
     ├── debugging-protocol.md    # 四阶段调试协议
     └── subagent-templates/      # 子代理 prompt 模板
         ├── explorer-prompt.md
-        └── architect-prompt.md
+        ├── architect-prompt.md
+        └── task-auto-subagent/  # implementer / spec-reviewer / code-quality-reviewer / phase-reviewer
 ```
 
 ## 工作流全景
@@ -203,6 +208,7 @@ structured-workflow/
                            ↓ 用户审阅
 /task-exec            →  逐任务执行 (循环)
   /task-auto          →    自动批量执行（需 ralph-loop 插件）
+  /task-auto-subagent →    或：subagent 自动批量执行 + review
   /plan-adjust        →    需要时调整计划
   /workflow-abort     →    需要放弃时终止
                            ↓ 阶段完成
