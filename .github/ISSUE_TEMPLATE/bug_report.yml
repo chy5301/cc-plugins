@@ -12,6 +12,7 @@ body:
         - gitee-toolkit
         - agent-native-design-guide
         - dida365-toolkit
+        - mstodo-toolkit
         - 通用（仓库级别）
         - 不确定
     validations:
