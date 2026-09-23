@@ -78,6 +78,29 @@ def test_validate_body_reports_missing_required():
     assert any("title" in e for e in errs)
 
 
+def test_validate_body_update_task_accepts_abandon_status():
+    # 官方 Open API：Task.status Abandoned=-1, Normal=0, Completed=2
+    errs = cli.validate_body("update-task", {"id": "t", "projectId": "p", "status": -1})
+    assert errs == []
+
+
+def test_validate_body_update_task_rejects_subtask_status_value():
+    # 1 是子任务（ChecklistItem）的"已完成"值，不是任务的"放弃"——必须拒绝
+    errs = cli.validate_body("update-task", {"id": "t", "projectId": "p", "status": 1})
+    assert any("status" in e for e in errs)
+
+
+def test_validate_body_update_task_rejects_completed_status():
+    # 完成走 complete-task 专用端点，不经 update-task 设 status=2
+    errs = cli.validate_body("update-task", {"id": "t", "projectId": "p", "status": 2})
+    assert any("status" in e for e in errs)
+
+
+def test_validate_body_create_task_rejects_status():
+    errs = cli.validate_body("create-task", {"title": "x", "projectId": "p", "status": -1})
+    assert any("status" in e for e in errs)
+
+
 def test_load_body_parses_json():
     assert cli.load_body('{"title":"x"}') == {"title": "x"}
 

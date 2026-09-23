@@ -81,7 +81,13 @@ OPERATION_SCHEMAS = {
         "method": "POST", "path": "/task/{task_id}",
         "locators": {"task_id": "id", "project": "projectId"},
         "required": ["id", "projectId"],
-        "fields": {**_TASK_FIELDS, "id": {"type": "str", "desc": "任务 ID"}},
+        "fields": {
+            **_TASK_FIELDS,
+            "id": {"type": "str", "desc": "任务 ID"},
+            # 官方 Open API：Task.status Abandoned=-1, Normal=0, Completed=2。
+            # 1 是子任务的"已完成"值，不可用于任务；完成走 complete-task 专用端点，故不开放 2
+            "status": {"type": "int", "enum": [-1, 0], "desc": "任务状态：-1 放弃 0 未完成（完成请用 complete-task）"},
+        },
         "require_content": True,
     },
     "create-project": {

@@ -60,14 +60,16 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
 **必需**：位置参数 `task_id`、`--project`。只在 `--body` 中传要修改的字段。
 **字段定义**：`schema update-task`。
 
-**状态说明**：`status` 取值 0=未完成、1=放弃、2=已完成。
+**状态说明**：任务的 `status` 取值 `-1`=已放弃、`0`=未完成、`2`=已完成（官方 Open API 定义）。`update-task` 只接受 `-1` 与 `0`；`1` 是**子任务**的"已完成"值，不能用于任务。
 
 **放弃任务**：
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-task <任务ID> \
   --project <项目ID> \
-  --body '{"status":1}'
+  --body '{"status":-1}'
 ```
+
+恢复被放弃的任务：同样的命令，改传 `--body '{"status":0}'`。恢复后 `completedTime` 仍保留放弃时的时间，服务端不会清除，不要据此判断任务状态，以 `status` 为准。
 
 **标记完成**：推荐使用 task-complete skill 的 `complete-task` 子命令（专用 API 端点，非 status 更新）。
 
