@@ -18,6 +18,7 @@ jobs:
               'gitee-toolkit': 'plugin: gitee-toolkit',
               'agent-native-design-guide': 'plugin: agent-native-design-guide',
               'dida365-toolkit': 'plugin: dida365-toolkit',
+              'mstodo-toolkit': 'plugin: mstodo-toolkit',
             };
 
             const body = context.payload.issue.body || '';

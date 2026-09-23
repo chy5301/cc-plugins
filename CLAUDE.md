@@ -4,7 +4,7 @@
 
 cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` 体系发布到 marketplace。当前包含五个插件：**structured-workflow**（大型工程任务的结构化管理工作流）、**gitee-toolkit**（Gitee 一站式工具箱）、**agent-native-design-guide**（Agent-Native 软件设计指南）、**dida365-toolkit**（滴答清单一站式工具箱）和 **mstodo-toolkit**（Microsoft To Do 一站式工具箱）。
 
-仓库本身不包含可构建或可测试的应用代码——所有内容都是 Markdown 命令定义、Python 辅助脚本和 JSON 配置。
+仓库本身不包含需要构建的应用——内容是 Markdown skill 定义、Python 脚本和 JSON 配置。其中 dida365-toolkit 与 mstodo-toolkit 的 CLI 带有单测，运行方式见「本地开发」。
 
 ## 仓库结构
 
@@ -12,7 +12,7 @@ cc-plugins 是一个 Claude Code 插件集合仓库，通过 `.claude-plugin` �
 .claude-plugin/marketplace.json    # Marketplace 元数据，注册所有插件
 structured-workflow/               # structured-workflow 插件根目录
   .claude-plugin/plugin.json       # 插件元数据（名称、版本、描述）
-  skills/                          # 8 个 Skills（workflow-brainstorm, workflow-init, task-exec, plan-adjust, phase-review, task-auto, workflow-abort, workflow-archive）
+  skills/                          # 9 个 Skills（workflow-brainstorm, workflow-init, task-exec, plan-adjust, phase-review, task-auto, task-auto-subagent, workflow-abort, workflow-archive）
   scripts/                         # Python 辅助脚本（init_project.py, archive_workflow.py, abort_workflow.py, setup_autoexec.py）
   references/                      # 参考文档（task-format.md, exception-handling.md, verification-gate.md, debugging-protocol.md, subagent-templates/）
 gitee-toolkit/                     # gitee-toolkit 插件根目录
@@ -28,7 +28,8 @@ dida365-toolkit/                   # dida365-toolkit 插件根目录
   .claude-plugin/plugin.json       # 插件元数据
   scripts/                         # Python CLI 脚本（dida365_cli.py，通过 uv run 调用滴答清单 Open API）
   skills/                          # 7 个 Skills（setup-guide, task-crud, task-complete, task-organize, task-query, project-management, daily-review）
-  references/                      # 参考文档（api-reference.md）
+  references/                      # 参考文档（cli-conventions.md, api-reference.md）
+  tests/                           # CLI 单测（pytest + httpx.MockTransport）
 mstodo-toolkit/                    # mstodo-toolkit 插件根目录
   .claude-plugin/plugin.json       # 插件元数据
   scripts/                         # Python CLI（mstodo_cli.py + mstodo_lib/ 六个模块，uv run 调用 Graph To Do API）
@@ -74,12 +75,19 @@ claude --plugin-dir ./dida365-toolkit
 claude --plugin-dir ./mstodo-toolkit
 ```
 
+运行 CLI 单测：
+
+```bash
+uv run --with pytest --with httpx pytest dida365-toolkit/tests -q
+uv run --with pytest --with httpx pytest mstodo-toolkit/tests -q
+```
+
 ## 开发约定
 
 - 命令文件使用中文编写，面向 Claude Code 作为执行者
 - Python 脚本使用 `uv run` 执行，不依赖预装环境
 - 版本号维护在各插件的 `.claude-plugin/plugin.json` 的 `version` 字段
-- `structured-workflow` 的自动执行功能（`/task-auto`）依赖外部插件 `ralph-loop`
+- `structured-workflow` 的自动执行功能 `/task-auto` 依赖外部插件 `ralph-loop`；`/task-auto-subagent` 是不依赖 ralph-loop 的并列路径，由 subagent 串行执行并附带 review
 - `gitee-toolkit` 的 Skills 基于 [oschina/gitee-agent-skills](https://github.com/oschina/gitee-agent-skills) v1.0.0 独立维护，不自动同步上游
 - `dida365-toolkit` 采用纯 Skill + Python CLI 脚本架构（无 MCP），通过 `uv run` 调用 `scripts/dida365_cli.py` 操作滴答清单 Open API，需设置环境变量 `DIDA365_API_TOKEN`
 - `mstodo-toolkit` 采用纯 Skill + Python CLI 架构（无 MCP），通过 `uv run` 调用 `scripts/mstodo_cli.py` 操作 Microsoft Graph 的 To Do API；认证走 OAuth2 设备码流，token 缓存在 `~/` 下的独立目录，**不进仓库、不参与 `/sync-config`**
