@@ -3,10 +3,11 @@ name: task-query
 description: |
   筛选和查询 Microsoft To Do 任务。当用户点名 "Microsoft To Do""MS To Do"
   "微软待办""微软 To Do"，或本次对话已在操作 Microsoft To Do，并要求跨清单
-  查找任务、按状态筛选、查看已完成任务、按优先级或分类筛选、统计任务数量时使用。
+  查找任务、按状态筛选、查看已完成任务、按优先级或分类筛选、统计任务数量、
+  查看分配给自己的任务时使用。
   "今天要做什么""有什么逾期的"这类固定的每日视角请用 daily-review。
   若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
-version: 0.1.0
+version: 0.1.1
 ---
 
 # task-query：筛选和查询 Microsoft To Do 任务
@@ -68,6 +69,18 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-tasks --list all \
 ## 不加 `--status` 会连已完成任务一起返回——这是有意为之
 
 Graph 的 tasks 集合本身就包含 `completed` 状态的任务，**不是 CLI 的 bug**。想看"未完成任务"必须显式传 `--status`，例如 `--status notStarted,inProgress,waitingOnOthers,deferred`；想统计已完成任务数量，反过来只传 `--status completed`。裸调用 `list-tasks --list all` 且不传 `--status` 是查看"全部任务（含已完成）"的正确方式，不需要额外解释成异常结果。
+
+## "分配给我的任务"：接口无法区分负责人
+
+Graph 不返回任务的负责人（见 `${CLAUDE_PLUGIN_ROOT}/references/api-reference.md`「Graph 没有的能力」节）。To Do 应用里在共享清单中"分配给某人"的信息、以及"已分配给我"智能列表，接口都拿不到。用户问"分配给我的任务有哪些"时：
+
+1. **不要把共享清单里的全部任务当成"分配给我的"**。共享清单是整个团队的任务池，其中大部分可能分给了别人。也不要根据标题或备注的口吻（如"这个你要……"）去猜负责人——这类线索只说明是写给某个执行人的，看不出是谁。
+2. **先如实说明限制**，再给出能确定的部分：用 `list-lists --fields id,displayName,isShared,isOwner` 区分清单归属。`isShared` 为 `false` 的清单只有用户自己能看到，其中的任务可以确定是用户自己的；共享清单（`isShared: true`）里的任务只能列为"共享清单中的任务，无法区分负责人"。
+3. **请用户提供区分规则**，常见做法有：
+   - 用户在应用的"已分配给我"列表里看一眼，把标题或关键词告诉你，再按标题查找
+   - 团队约定一个接口看得到的标记：分类（`categories`）里带执行人名字，或标题加 `【姓名】` 前缀——之后按下一节的客户端筛选做法过滤
+   - 按执行人拆分清单（如「项目-姓名」），之后按 `listDisplayName` 筛选
+4. 用户给出规则后，按规则在客户端过滤；规则本身无法 100% 覆盖（例如有人分配时忘了加前缀）时，要在结果里注明。
 
 ## 按 `categories` / `importance` 筛选目前是客户端行为
 
