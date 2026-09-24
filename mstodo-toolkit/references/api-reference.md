@@ -185,6 +185,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py create-task --list L1 \
 
 - **无移动端点**：Graph 没有「把任务从清单 A 移到清单 B」的专用 API。要移动任务只能在目标清单 `create-task` 一个新任务再在原清单 `delete-task` 旧任务——而且移动后任务 `id` 必然改变（见 `todoTask.id` 字段说明）。本插件刻意不提供 `move-tasks` 语义化快捷命令（与 cli-conventions.md 一致）。
 - **无跨清单查询端点**：Graph 没有「一次请求返回所有清单下所有任务」的端点，只能逐清单请求。本插件的 `list-tasks --list all` 是 CLI 层用 `$batch` + 逐清单分页拼出来的聚合结果，不是 Graph 原生能力，聚合机制详见 cli-conventions.md「跨清单聚合」节。
+- **无任务负责人信息**：共享清单里可以在 To Do 应用内把任务"分配给"某个成员，但 Graph 不返回这个信息——`todoTask` 没有负责人字段（2026-09-24 实测：同一个共享清单，v1.0 与 beta 端点返回的任务字段完全相同，都没有负责人字段）；应用里的"已分配给我"智能列表也不是 `todoTaskList`，`list-lists` 列不出来。因此**无法通过接口判断任务分配给了谁**，处置方式见 `task-query` skill。
 - **无共享管理端点**：`todoTaskList.isOwner`/`isShared` 只是只读反映当前共享状态的字段，Graph 没有提供邀请协作者、移除协作者、修改协作者权限的 API。
 
 ---
