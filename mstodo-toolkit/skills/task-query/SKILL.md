@@ -7,7 +7,7 @@ description: |
   查看分配给自己的任务时使用。
   "今天要做什么""有什么逾期的"这类固定的每日视角请用 daily-review。
   若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
-version: 0.1.0
+version: 0.1.1
 ---
 
 # task-query：筛选和查询 Microsoft To Do 任务

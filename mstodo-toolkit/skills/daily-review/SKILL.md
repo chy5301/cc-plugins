@@ -6,7 +6,7 @@ description: |
   "有什么逾期的""任务概览""帮我规划今天"时使用。按任意自定义条件查找或统计任务
   请用 task-query。若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，
   先向用户确认再执行。
-version: 0.1.0
+version: 0.1.1
 ---
 
 # daily-review：Microsoft To Do 每日回顾与规划
@@ -29,19 +29,24 @@ version: 0.1.0
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py <子命令> [参数]
 ```
 
-## 固定流程：一条命令取全量候选集
+## 固定流程：两条命令取全量候选集与清单归属
 
-每日回顾只需要一条命令，条件是写死的：
+每日回顾的命令和条件是写死的：
 
 ```bash
+# 1. 全量候选集
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-tasks --list all \
   --status notStarted,inProgress,waitingOnOthers \
-  --fields id,title,status,importance,dueDateTime,listDisplayName
+  --fields id,title,status,importance,dueDateTime,listId,listDisplayName
+
+# 2. 清单归属：哪些清单是别人共享给用户的
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-lists --fields id,displayName,isShared
 ```
 
 - `--list all` 触发跨清单聚合，这是**二维分页**：第一维是清单枚举本身，第二维是每个清单内的任务分页，两维都跟完（或都命中 `--max-pages` 截断）聚合结果才算数
 - `--status notStarted,inProgress,waitingOnOthers` 把已完成（`completed`）和已挂起（`deferred`）的任务排除在候选集之外——回顾关心的是"还要处理的事"
-- `--fields` 起手式覆盖了分档、展示、识别"卡在别人身上"所需的全部字段，不需要更多
+- 第 1 条的 `--fields` 覆盖了分档、展示、识别"卡在别人身上"所需的字段；`listId` 用来和第 2 条的结果关联
+- 第 2 条是必须的："是否共享"是清单的属性（`isShared`），任务上没有，只看 `listDisplayName` 无法判断，见下文「共享清单里的任务不等于"你的任务"」
 
 拿到结果后，**分档、呈现、标记 `waitingOnOthers` 全部在 Agent 侧完成**，CLI 不提供这些语义化能力。
 
@@ -79,7 +84,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mstodo_cli.py list-tasks --list all \
 
 候选集包含**所有**清单，其中也包括别人共享给用户的清单。Graph 不返回任务负责人，共享清单里的任务可能大部分分给了别人。呈现时：
 
-- 不要把候选集笼统称为"你今天要做的事"。如果结果里有共享清单的任务，按 `listDisplayName` 注明来源，并提醒用户共享清单的任务无法区分负责人
+- 不要把候选集笼统称为"你今天要做的事"。如果结果里有共享清单的任务，用任务的 `listId` 对上第 2 条命令结果里 `isShared` 为 `true` 的清单，按 `listDisplayName` 注明来源，并提醒用户共享清单的任务无法区分负责人
 - 用户追问"哪些是分配给我的"→ 转 `task-query`，按其中"分配给我的任务"一节处理，不要在本 skill 里猜
 
 ## 边界
