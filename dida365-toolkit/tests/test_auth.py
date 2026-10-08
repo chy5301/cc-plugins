@@ -62,6 +62,15 @@ def test_whitespace_only_file_is_missing(tmp_path):
     assert "凭据文件" in excinfo.value.message
 
 
+def test_undecodable_file_is_treated_as_missing(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_bytes(b"\xff\xfe\x00")
+    with pytest.raises(AuthConfigError) as excinfo:
+        resolve_token({TOKEN_FILE_ENV: str(token_file)})
+    assert excinfo.value.code == "TOKEN_MISSING"
+    assert token_source({TOKEN_FILE_ENV: str(token_file)}) is None
+
+
 def test_token_source_reports_env_file_or_none(tmp_path):
     token_file = tmp_path / "token"
     token_file.write_text("dp_file_token", encoding="utf-8")

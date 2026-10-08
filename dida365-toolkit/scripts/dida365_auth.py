@@ -49,7 +49,7 @@ def token_file_path(env: Mapping[str, str] | None = None) -> Path:
 def read_token_file(env: Mapping[str, str] | None = None) -> str | None:
     try:
         text = token_file_path(env).read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, ValueError):
         return None
     token = text.strip()
     return token or None
