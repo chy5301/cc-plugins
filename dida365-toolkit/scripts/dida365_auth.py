@@ -74,7 +74,11 @@ def validate_origin(url: str, approved_hosts: frozenset[str]) -> None:
     host = (parts.hostname or "").lower()
     if host not in approved_hosts:
         raise AuthConfigError("INVALID_TARGET", f"目标主机不在批准列表：{host or '(空)'}")
-    if parts.port not in (None, 443):
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise AuthConfigError("INVALID_TARGET", f"目标地址无法解析：{exc}") from None
+    if port not in (None, 443):
         raise AuthConfigError("INVALID_TARGET", "目标端口不受支持")
 
 

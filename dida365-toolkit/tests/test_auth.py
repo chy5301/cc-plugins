@@ -54,6 +54,7 @@ def test_domain_unknown_rejected():
         "https://user@api.dida365.com/open/v1/project",
         "https://user:pw@api.dida365.com/open/v1/project",
         "https://api.dida365.com:8443/open/v1/project",
+        "https://api.dida365.com:abc/open/v1/project",
         "https://api.dida365.com.evil.example/open/v1/project",
         "https://evil.example/open/v1/project",
         "https://[::1/open/v1/project",
