@@ -9,7 +9,7 @@ Claude Code 插件集合。
 | [structured-workflow](./structured-workflow/) | 大型工程任务的结构化管理工作流。提供探索→分析→规划→执行→回顾→归档全生命周期管理。 |
 | [gitee-toolkit](./gitee-toolkit/) | Gitee 一站式工具箱。集成 Gitee MCP Server 与 DevOps Skills，覆盖 PR、Issue、Release、仓库探索等操作。 |
 | [agent-native-design-guide](./agent-native-design-guide/) | Agent-Native 软件设计指南。提供面向 AI Agent 的软件设计决策框架、十原则体系和架构模式。 |
-| [dida365-toolkit](./dida365-toolkit/) | 滴答清单一站式工具箱。提供 7 个 Skills 覆盖任务和项目的完整生命周期管理，包括增删改查、完成、移动、高级筛选和每日回顾。 |
+| [dida365-toolkit](./dida365-toolkit/) | 滴答清单一站式工具箱（仅支持国内服务）。默认经官方滴答 MCP 提供 7 个 Skills，覆盖任务与项目的完整生命周期管理，包括增删改查、完成、放弃、移动、高级筛选和每日回顾；官方 MCP 未覆盖的能力按需经通用 Open API 补缺执行器完成。 |
 | [mstodo-toolkit](./mstodo-toolkit/) | Microsoft To Do 一站式工具箱。提供 7 个 Skills 覆盖任务与清单的完整生命周期管理，包括增删改查、状态推进、子任务、跨清单聚合查询、整理与每日回顾。 |
 
 ## 安装

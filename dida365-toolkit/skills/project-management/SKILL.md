@@ -2,96 +2,71 @@
 name: project-management
 description: |
   管理滴答清单项目（清单）。当用户点名 "滴答清单""滴答""TickTick"，或本次对话已在操作滴答清单，并要求查看所有项目、新建/修改/删除/重命名清单时使用。清单里的任务请用 task-crud。若用户还装有其他待办工具、本轮未指明平台且上下文无法确定，先向用户确认再执行。
-version: 0.2.0
-tools: Bash
+version: 0.3.0
 ---
 
 # 滴答清单项目管理
 
-对滴答清单中的项目（清单）进行增删改查操作。
+对滴答清单中的项目（清单）做增删改查：查看、新建、更新与删除。删除清单是当前 MCP 的能力缺口，按能力发现协议用 API 执行器补缺，步骤单列。
 
-## 前置条件
+通道选择、工具命名发现、能力发现协议、批量结果与部分失败、安全边界与失败分类统一见 `${CLAUDE_PLUGIN_ROOT}/references/tool-conventions.md`；使用任何滴答清单能力之前先读该文件，本文只补充清单管理的工作流细节。官方端点来源与已验证限制见 `${CLAUDE_PLUGIN_ROOT}/references/api-reference.md`。
 
-- 环境变量 `DIDA365_API_TOKEN` 已设置
+## 接入前提
 
-## CLI 工具路径
+- **默认 Bearer 接入**：仅插件 `headersHelper` 模式要求默认凭据文件 `~/.dida365/token`；环境变量 `DIDA365_API_TOKEN` 是**可选且优先**的本地/API 来源，不能替代该模式的默认凭据文件（见 `tool-conventions.md` 第 8 节与 setup-guide）。
+- **已有 OAuth MCP 接入**：已认证且可用的手动 OAuth MCP 不需要个人 Token 或默认凭据文件，直接使用当前连接的工具；不因文件缺失转入 setup-guide，也不要求运行 Token helper 自检。
+- **API 补缺**：只有确认 MCP 缺口、需要正式调用 API 时才要求个人 Token；缺少时说明限制，由用户选择补配或在滴答应用中完成，不读取 OAuth 缓存，不改动现有 OAuth MCP。
+- 没有可用 MCP 接入或调用返回 401 时，说明原因并按当前认证方式转入 setup-guide；403 按权限问题处理。不自动切换通道或认证方式，也不在本 skill 里改配置。
+- 调用失败按 `tool-conventions.md` 第 9 节分类处置；超时或结果不确定时先只读核验现状，不自动重试、不换通道重做。
 
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py <子命令> [参数]
-```
+## 查看清单
 
-> 全局通用约定（`--fields`、`--dry-run`、响应信封、退出码、`schema` 自省等）见 `${CLAUDE_PLUGIN_ROOT}/references/cli-conventions.md`。字段经 `--body` JSON 传入，完整字段用 `schema <操作>` 查询。
+清单读取走官方 MCP。调用前先查看当前连接实际暴露的工具与 schema，按语义选择（清单列表、清单详情、清单任务等）；工具名与参数以发现结果为准——插件模式下形如 `mcp__plugin_dida365-toolkit_dida365__<tool>`，OAuth 手动配置模式下命名空间可能不同，**不得凭记忆拼工具名，也不得写死唯一前缀**。
 
-## 操作说明
+- **列出清单**：用清单列表工具，返回包含 ID、名称、颜色、视图模式等信息。清单列表是分页的，按分页继续跟页，**且不含虚拟 inbox——清单列表为空不代表账号没有任务**（见 `${CLAUDE_PLUGIN_ROOT}/references/api-reference.md` 已验证限制）。
+- **单个清单**：用清单详情工具读取；需要清单下的任务时读取该清单的任务，inbox 作为虚拟清单单独读取。
+- **重名先确认**：存在同名或近似名清单时展示候选（名称与 ID）让用户确认，不按列表顺序自行挑一个。
 
-### 查看所有项目
+展示清单列表时建议以表格呈现：名称、视图模式（`list` / `kanban` / `timeline`）、类型（`TASK` / `NOTE`）、颜色（可用色块表示）、是否已关闭；必要时附清单 ID，便于后续操作引用。
 
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py list-projects
-```
+## 新建与更新清单
 
-返回所有项目的列表，包含 ID、名称、颜色、视图模式等信息。
+- **新建**：必需字段 `name`；可选字段 `color`（十六进制，如 `#F18181`）、`viewMode`（`list` / `kanban` / `timeline`，默认 `list`）、`kind`（`TASK` / `NOTE`，默认 `TASK`）、`sortOrder`（整数）。字段名与取值以当前发现到的 schema 为准；缺信息先追问，不擅自代填。
+- **更新/重命名**：只提交用户要求修改的字段，不整对象覆盖；清单 ID 先查真实值再改，不凭名称猜。
+- 创建或更新成功后展示返回的清单详情（名称、ID、视图模式等）作为回执。
 
-### 查看单个项目
+## 删除清单（MCP 缺口，按发现协议补缺）
 
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project <项目ID>
-```
+删除单个清单是**当前 MCP 明确的能力缺口**：现有工具列表没有删除单个清单的工具，分组删除类工具不能视为等价替代。因此按 `tool-conventions.md` 第 2 节的能力发现协议走补缺路径，用通用执行器调用官方接口 `DELETE /open/v1/project/{projectId}`。
 
-### 查看项目及其任务
+**不为此新增专用子命令**：删除清单走通用执行器，本 skill 只描述编排与确认步骤；该接口在通过长期支持审核前不写入脚本。
 
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py get-project-data <项目ID>
-```
+操作顺序：
 
-返回项目信息、未完成任务列表和看板列信息。可传 `inbox` 作为项目 ID 获取收集箱数据。
+1. **确认真实清单身份**：先读取清单列表与单个清单，核对要删除的是哪一个（名称 + ID）；存在同名清单时展示候选让用户确认，不凭名称直接删。
+2. **确认目标与连带影响**：删除清单会**同时删除该清单下的所有任务**，此操作不可逆。把清单名称、ID 与影响范围（该清单下任务的数量或样例）展示给用户，得到用户**明确确认**后再继续。
+3. **先 `--dry-run` 展示**：用执行器预演请求，确认方法、路径与目标 ID：
 
-### 创建项目
+   ```bash
+   uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_api.py --method DELETE --path /open/v1/project/<清单ID> --dry-run
+   ```
 
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py create-project \
-  --body '{"name":"项目名称","color":"#F18181","viewMode":"list"}'
-```
+   预演是本地构造与展示，不等于服务端验证，也不会改动任何数据；输出与错误信息都不含凭据。
+4. **执行删除**：确认无误后去掉 `--dry-run` 正式执行：
 
-**必需字段**：`name`。
+   ```bash
+   uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_api.py --method DELETE --path /open/v1/project/<清单ID>
+   ```
 
-**可选字段**：
-- `color`：颜色（十六进制，如 `#F18181`）
-- `viewMode`：视图模式（`list` / `kanban` / `timeline`，默认 `list`）
-- `kind`：项目类型（`TASK` / `NOTE`，默认 `TASK`）
-- `sortOrder`：排序权重（整数）
+5. **读回核验**：执行后重新读取清单列表（必要时再读该清单），确认目标已不存在，并报告实际结果；结果不确定时先只读查询现状，不盲目重试、不重复执行删除。
 
-**视图模式说明**：
-- `list`：列表视图（默认）
-- `kanban`：看板视图
-- `timeline`：时间线视图
+> 执行器的完整用法、固定出口与安全边界见 `tool-conventions.md` 第 5 节；删除清单属于影响不明确的操作，按第 2 节在用户授权范围内执行。
 
-**项目类型说明**：
-- `TASK`：任务类型（默认）
-- `NOTE`：笔记类型
+## 边界
 
-### 更新项目
+- **清单里的任务归 task-crud**：本 skill 只管清单本身；清单内任务的增删改查走 task-crud，完成走 task-complete。
+- **删除逐个确认**：不因为用户说过"删掉那个清单"就跳过连带影响确认；一次删除多个清单时逐项列出并分别确认，不把多个删除合成一次无须确认的批量操作。
+- **运行失败不是能力缺口**：401/403/429、超时或参数错误按 `tool-conventions.md` 第 9 节分类处置，不构成改用 API 重发同一操作或更换认证方式的理由。
+- **平台消歧**：与 mstodo 等其他待办工具并存、本轮未指明平台、且上下文无法确定时，先向用户确认平台再执行。
 
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py update-project <项目ID> \
-  --body '{"name":"新名称"}'
-```
-
-`<项目ID>` 为 URL 路径参数，只需在 `--body` 中传入要修改的字段。可用字段同创建项目（`name`、`color`、`viewMode`、`kind`、`sortOrder`）。
-
-### 删除项目
-
-```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_cli.py delete-project <项目ID>
-```
-
-> **注意**：删除项目会同时删除项目下的所有任务，此操作不可逆。执行前必须向用户确认。
-
-## 结果展示建议
-
-展示项目列表时，建议以表格形式呈现：
-- 项目名称
-- 视图模式
-- 类型
-- 颜色（可用色块表示）
-- 是否已关闭
+> 通道选择、能力发现协议、API 执行器用法、安全边界与失败分类见 `${CLAUDE_PLUGIN_ROOT}/references/tool-conventions.md`；官方端点来源与已验证限制见 `${CLAUDE_PLUGIN_ROOT}/references/api-reference.md`。

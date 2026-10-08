@@ -1,0 +1,7 @@
+{
+  "dida365": {
+    "type": "http",
+    "url": "https://mcp.dida365.com",
+    "headersHelper": "uv run \"${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py\""
+  }
+}
