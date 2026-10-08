@@ -2,9 +2,8 @@ import tempfile
 from pathlib import Path
 from uuid import uuid4
 
-import pytest
-
 import dida365_auth as auth
+import pytest
 from dida365_auth import (
     APPROVED_API_HOSTS,
     APPROVED_MCP_HOSTS,
@@ -48,6 +47,54 @@ def test_resolve_token_from_file(tmp_path):
     token_file = tmp_path / "token"
     token_file.write_text("dp_file_token\n", encoding="utf-8")
     assert resolve_token({TOKEN_FILE_ENV: str(token_file)}) == "dp_file_token"
+
+
+def test_resolve_token_from_utf8_bom_file(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("dp_file_token\n", encoding="utf-8-sig")
+    assert resolve_token({TOKEN_FILE_ENV: str(token_file)}) == "dp_file_token"
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "dp_中文_token",
+        "dp_test\ninjected",
+        "dp_test token",
+        "dp_test\ttoken",
+        "dp_test\x00token",
+        "dp_test\x7ftoken",
+    ],
+)
+@pytest.mark.parametrize("source", ["env", "file"])
+def test_invalid_token_is_rejected_without_secret(tmp_path, token, source):
+    config = {TOKEN_FILE_ENV: MISSING_TOKEN_FILE}
+    if source == "env":
+        config["DIDA365_API_TOKEN"] = token
+    else:
+        token_file = tmp_path / "token"
+        token_file.write_text(token, encoding="utf-8")
+        config[TOKEN_FILE_ENV] = str(token_file)
+    with pytest.raises(AuthConfigError) as excinfo:
+        resolve_token(config)
+    assert excinfo.value.code == "TOKEN_INVALID"
+    assert token not in str(excinfo.value)
+    assert token not in repr(excinfo.value)
+    assert token_source(config) is None
+
+
+def test_env_token_with_bom_is_rejected():
+    with pytest.raises(AuthConfigError) as excinfo:
+        resolve_token(env(DIDA365_API_TOKEN=chr(0xFEFF) + "dp_test_token"))
+    assert excinfo.value.code == "TOKEN_INVALID"
+
+
+def test_invalid_env_token_does_not_fall_back_to_valid_file(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("dp_file_token", encoding="utf-8")
+    with pytest.raises(AuthConfigError) as excinfo:
+        resolve_token(env(DIDA365_API_TOKEN="dp_中文_token", DIDA365_TOKEN_FILE=str(token_file)))
+    assert excinfo.value.code == "TOKEN_INVALID"
 
 
 def test_env_token_wins_over_file(tmp_path):

@@ -3,8 +3,9 @@ import tempfile
 from pathlib import Path
 from uuid import uuid4
 
+import dida365_api
+import httpx
 import pytest
-
 from dida365_api import (
     UsageError,
     apply_fields,
@@ -116,11 +117,6 @@ def test_query_must_be_object(capsys):
     assert envelope["error"]["code"] == "INVALID_JSON"
 
 
-import httpx
-
-import dida365_api
-
-
 def _client(handler):
     return httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False)
 
@@ -226,6 +222,24 @@ def test_unauthorized_body_token_is_redacted(monkeypatch, capsys):
     assert "dp_test_token" not in json.dumps(envelope)
 
 
+@pytest.mark.parametrize("json_body", [True, False])
+@pytest.mark.parametrize("prefix_length", [290, 296, 310])
+def test_error_body_redacts_token_before_truncation(monkeypatch, capsys, json_body, prefix_length):
+    token = "dp_boundary_secret_token"
+    detail = "x" * prefix_length + token + " supplied"
+
+    def handler(request):
+        if json_body:
+            return httpx.Response(401, json={"error": detail})
+        return httpx.Response(401, text=detail)
+
+    code, envelope = run_with_transport(monkeypatch, capsys, handler, GET_PROJECT, token=token)
+    assert code == 4
+    message = envelope["error"]["message"]
+    assert message == "凭据无效或已过期：" + ("x" * prefix_length + "[REDACTED] supplied")[:300]
+    assert "dp_boundary" not in json.dumps(envelope)
+
+
 def test_timeout_no_retry(monkeypatch, capsys):
     calls = []
 
@@ -263,6 +277,38 @@ def test_token_missing_fails_before_client(monkeypatch, capsys):
     code, envelope = run_main(GET_PROJECT, capsys)
     assert code == 2
     assert envelope["error"]["code"] == "TOKEN_MISSING"
+
+
+def test_utf8_bom_file_sends_normalized_bearer(monkeypatch, capsys, tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("dp_file_token\n", encoding="utf-8-sig")
+    monkeypatch.delenv("DIDA365_API_TOKEN", raising=False)
+    monkeypatch.delenv("DIDA365_API_DOMAIN", raising=False)
+    monkeypatch.setenv("DIDA365_TOKEN_FILE", str(token_file))
+
+    def handler(request):
+        assert request.headers["authorization"] == "Bearer dp_file_token"
+        return httpx.Response(200, json=[])
+
+    monkeypatch.setattr(dida365_api, "create_client", lambda: _client(handler))
+    code, envelope = run_main(GET_PROJECT, capsys)
+    assert code == 0
+    assert envelope["success"] is True
+
+
+@pytest.mark.parametrize("token", ["dp_中文_token", "dp_test\ninjected"])
+def test_invalid_token_fails_before_client(monkeypatch, capsys, token):
+    monkeypatch.setenv("DIDA365_API_TOKEN", token)
+    monkeypatch.delenv("DIDA365_API_DOMAIN", raising=False)
+
+    def boom():
+        raise AssertionError("非法 Token 时不得创建 client")
+
+    monkeypatch.setattr(dida365_api, "create_client", boom)
+    code, envelope = run_main(GET_PROJECT, capsys)
+    assert code == 2
+    assert envelope["error"]["code"] == "TOKEN_INVALID"
+    assert token not in json.dumps(envelope, ensure_ascii=False)
 
 
 def test_international_domain_fails_before_client(monkeypatch, capsys):

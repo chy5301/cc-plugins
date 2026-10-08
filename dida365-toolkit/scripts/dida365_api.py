@@ -12,13 +12,12 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import urlencode
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import dida365_auth as auth  # noqa: E402
-
-import httpx  # noqa: E402
+import dida365_auth as auth
+import httpx
 
 ALLOWED_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 PATH_PREFIX = "/open/v1/"
@@ -178,9 +177,9 @@ def _error_detail(response: httpx.Response) -> str:
         for key in ("error", "errorMessage", "message", "error_description"):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
-                return value.strip()[:300]
+                return value.strip()
     text = response.text.strip()
-    return text[:300] if text else "(无响应正文)"
+    return text if text else "(无响应正文)"
 
 
 def _decode_success_body(response: httpx.Response, fields: list[str] | None) -> Any:
@@ -230,7 +229,7 @@ def run_request(method: str, url: str, body: Any, fields: list[str] | None, meta
         "took_ms": int((time.time() - started) * 1000),
     }
     status = response.status_code
-    detail = _redact(_error_detail(response), token)
+    detail = _redact(_error_detail(response), token)[:300]
 
     if 300 <= status < 400:
         return emit_error("REDIRECT_BLOCKED", f"服务端返回重定向（{status}），本入口不跟随重定向", metadata, exit_code=EXIT_ERROR)

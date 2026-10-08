@@ -6,7 +6,7 @@
 
 ## 1. 通道选择
 
-- **默认使用官方 MCP**：任务、清单、状态、查询与移动等操作优先用 `.mcp.json` 注册的 `dida365` 服务完成。
+- **默认使用官方 MCP**：任务、清单、状态、查询与移动等操作优先用 `.mcp.json` 注册的 `dida365` 服务完成；已有正常工作的手动 OAuth MCP 接入时，使用当前实际连接的服务，不强制改回插件 Bearer 接入，也不要求个人 Token 文件。
 - **仅在确认缺口时补缺**：只有 MCP 明确缺少所需工具或必需参数时，才进入第 2 节的 API 补缺路径。
 - **禁止把运行失败当作切换理由**：MCP 调用返回 401/403/429、超时或参数错误时，按第 9 节分类处置；不得因此改用 API 重发同一操作，也不得因此更换认证方式。
 - 认证方式（默认个人 API Token，OAuth 为用户明确选择的备选）由用户决定，任何失败不得自动切换。
@@ -91,9 +91,9 @@ Token 不出现在命令行参数、请求体或任何输出中；凭据由共�
 
 - **仅支持国内**：本版本仅支持国内滴答服务，API 出口固定 `https://api.dida365.com`、MCP 出口固定 `https://mcp.dida365.com`。可识别的国际/其他域名配置（如 `DIDA365_API_DOMAIN` 指向 `api.ticktick.com`）会在发送任何凭据之前失败，不做静默降级；也不能从 Token 字符串识别地区。
 - **Token 不出现在参数、日志或输出中**：不回显 Token，不把 Token 写入命令行参数、请求体、`--check` 输出、错误回显或 metadata。
-- **MCP 通道凭据固定来自默认凭据文件**：默认 `~/.dida365/token`。插件级 `headersHelper` 运行时，Claude Code 会移除名称含 TOKEN/SECRET/PASSWORD/KEY/AUTH 的环境变量，因此 `DIDA365_API_TOKEN` 在 MCP 连接时通常不可见；环境变量只是本地直调时优先生效的可选来源。`DIDA365_TOKEN_FILE` 的名称同样含 `TOKEN`、同样会被移除，所以**覆盖只对本地/API 执行有效**，MCP 固定读取默认路径；需要异地存放时用符号链接/联接点把默认路径指过去。凭据文件及其链接目标都位于仓库与 `/sync-config` 之外，不随插件同步。
-- **不读取 MCP OAuth 缓存**：OAuth 只覆盖 MCP 接入，API 补缺需要个人 Token；不得从客户端缓存提取凭据，也不得把 OAuth 当作 API 凭据来源。
-- **自检用无秘密模式**：`uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check` 只输出配置状态（含 `token_source`、`token_present`、`mcp_file_present`），可用于排查"凭据来自环境变量还是凭据文件"，以及 MCP 侧（默认文件）是否真的有凭据——`mcp_file_present` 为 `false` 时 MCP 连接拿不到凭据，即使 `token_source` 显示 `file`，那也只是本地/API 侧的假绿灯；不要运行不带 `--check` 的辅助入口，也不要把它的认证头输出展示给用户。
+- **默认 Bearer MCP 凭据来自默认文件**：仅插件 `headersHelper` 模式要求 `~/.dida365/token`。插件级 `headersHelper` 运行时，Claude Code 会移除名称含 TOKEN/SECRET/PASSWORD/KEY/AUTH 的环境变量，因此 `DIDA365_API_TOKEN` 在该模式的 MCP 连接时通常不可见；环境变量只是本地直调时优先生效的可选来源。`DIDA365_TOKEN_FILE` 的名称同样含 `TOKEN`、同样会被移除，所以**覆盖只对本地/API 执行有效**，默认 Bearer MCP 固定读取默认路径；需要异地存放时用符号链接/联接点把默认路径指过去。凭据文件及其链接目标都位于仓库与 `/sync-config` 之外，不随插件同步。文件支持 UTF-8（含 BOM），去掉首尾空白后必须是无内部空白、无控制字符的单行 ASCII Token；格式无效时在输出认证头或发送请求前报 `TOKEN_INVALID`，错误不含凭据。
+- **手动 OAuth MCP 无需个人 Token**：已有已认证且可用的手动 OAuth MCP 时，直接使用当前连接及发现的工具；不要求默认凭据文件、不运行 Token helper 自检，也不因缺少个人 Token 转入 setup-guide。OAuth 只覆盖 MCP 接入；确认 MCP 缺口、需要正式调用 API 时，才另行要求个人 Token，缺少时说明限制，由用户选择补配或在滴答应用中完成。不读取客户端 OAuth 缓存、不把 OAuth 当作 API 凭据来源，也不因补配 API Token 自动改回 Bearer MCP。
+- **自检用无秘密模式（默认 Bearer/本地 API）**：`uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check` 只输出配置状态（含 `token_source`、`token_present`、`mcp_file_present`），可用于排查"有效 Token 来自环境变量还是凭据文件"，以及默认文件里是否有格式有效的凭据——`mcp_file_present` 为 `false` 时默认 Bearer MCP 连接拿不到有效凭据，即使 `token_source` 显示 `file`，那也只是本地/API 侧的假绿灯；这些字段不判断手动 OAuth MCP 的接入状态，OAuth 应通过客户端状态与只读调用验证。不要运行不带 `--check` 的辅助入口，也不要把它的认证头输出展示给用户。
 - **执行器边界**：`dida365_api.py` 不跟随重定向、不自动重试任何请求、不覆盖 `/oauth/` 授权类操作；预演与错误信息同样不含凭据。
 
 ## 9. 失败分类

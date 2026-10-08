@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 HELPER = PLUGIN_ROOT / "scripts" / "mcp_headers.py"
 AUTH_SOURCE = (PLUGIN_ROOT / "scripts" / "dida365_auth.py").read_text(encoding="utf-8")
@@ -38,6 +40,7 @@ def run_helper(env, args=()):
         text=True,
         env=proc_env,
         timeout=20,
+        check=False,
     )
 
 
@@ -51,6 +54,51 @@ def test_outputs_authorization_json(tmp_path):
     proc = run_helper({**sandbox_home(tmp_path, "dp_file_token\n"), SERVER_ENV: "https://mcp.dida365.com"})
     assert proc.returncode == 0
     assert json.loads(proc.stdout) == {"Authorization": "Bearer dp_file_token"}
+
+
+def test_utf8_bom_file_outputs_normalized_authorization(tmp_path):
+    proc = run_helper(sandbox_home(tmp_path, chr(0xFEFF) + "dp_file_token\n"))
+    assert proc.returncode == 0
+    assert json.loads(proc.stdout) == {"Authorization": "Bearer dp_file_token"}
+
+
+def test_utf8_bom_file_passes_check_without_secrets(tmp_path):
+    proc = run_helper(sandbox_home(tmp_path, chr(0xFEFF) + "dp_file_token\n"), ["--check"])
+    assert proc.returncode == 0
+    status = json.loads(proc.stdout)
+    assert status["ok"] is True
+    assert status["mcp_file_present"] is True
+    assert "dp_file_token" not in proc.stdout + proc.stderr
+
+
+@pytest.mark.parametrize("args", [(), ("--check",)])
+def test_invalid_file_token_is_rejected_without_secrets(tmp_path, args):
+    token = "dp_bad\nheader"
+    proc = run_helper(sandbox_home(tmp_path, token), args)
+    assert proc.returncode == 1
+    assert token not in proc.stdout + proc.stderr
+    if args:
+        status = json.loads(proc.stdout)
+        assert status["ok"] is False
+        assert status["error"]["code"] == "TOKEN_INVALID"
+        assert status["token_present"] is False
+        assert status["mcp_file_present"] is False
+    else:
+        assert proc.stdout.strip() == ""
+        assert "TOKEN_INVALID" in proc.stderr
+
+
+def test_check_rejects_invalid_default_file_even_with_valid_env_token(tmp_path):
+    proc = run_helper(
+        {**sandbox_home(tmp_path, "dp_bad\nheader"), "DIDA365_API_TOKEN": "dp_env_token"},
+        ["--check"],
+    )
+    assert proc.returncode == 0
+    status = json.loads(proc.stdout)
+    assert status["ok"] is True
+    assert status["token_source"] == "env"
+    assert status["mcp_file_present"] is False
+    assert "dp_env_token" not in proc.stdout + proc.stderr
 
 
 def test_defaults_to_official_server_url(tmp_path):

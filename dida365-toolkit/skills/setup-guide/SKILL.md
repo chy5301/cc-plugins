@@ -39,7 +39,7 @@ version: 0.2.0
 
 ### Step 2: 写入凭据文件
 
-MCP 连接的凭据来自默认凭据文件 `~/.dida365/token`。环境变量 `DIDA365_TOKEN_FILE` **只影响本地/API 执行**（它的名称含 `TOKEN`，在插件级 helper 环境同样会被移除），MCP 通道固定读取默认路径；需要把文件放到别处时，用符号链接/联接点让默认路径指向目标，不要指望用覆盖变量改动 MCP 的读取位置。文件内容为一行纯 Token，不要加引号或多余空白。
+MCP 连接的凭据来自默认凭据文件 `~/.dida365/token`。环境变量 `DIDA365_TOKEN_FILE` **只影响本地/API 执行**（它的名称含 `TOKEN`，在插件级 helper 环境同样会被移除），MCP 通道固定读取默认路径；需要把文件放到别处时，用符号链接/联接点让默认路径指向目标，不要指望用覆盖变量改动 MCP 的读取位置。文件支持 UTF-8（含 BOM），内容为一行纯 Token；去掉首尾空白后必须是无内部空白、无控制字符的单行 ASCII 字符串，不要加引号或内部换行。
 
 若环境变量 `DIDA365_API_TOKEN` 已经配置好，可用一条命令生成凭据文件：
 
@@ -69,8 +69,8 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check
 
 输出是不含秘密的 JSON 状态，重点看两个字段：
 
-- `token_source`：`env` 表示本次由环境变量提供（注意 MCP 连接看不到它，仍要写好默认凭据文件）、`file` 表示来自当前生效的凭据文件、`null`（`token_present: false`）表示两处都没有，回到 Step 1/2。
-- `mcp_file_present`：**MCP 相关的信号** —— 默认凭据文件 `~/.dida365/token` 里是否有凭据。它为 `false` 时 MCP 连接拿不到凭据：即使 `token_source` 显示 `file` 也一样，那种情况下凭据来自 `DIDA365_TOKEN_FILE` 覆盖，而该变量在插件级 helper 环境会被移除，属于本地/API 侧的假绿灯。
+- `token_source`：`env` 表示本次由环境变量提供格式有效的 Token（注意默认 Bearer MCP 连接看不到它，仍要写好默认凭据文件）、`file` 表示来自当前生效的凭据文件、`null`（`token_present: false`）表示缺少 Token 或格式无效，按 `error.code` 区分后处理。
+- `mcp_file_present`：**默认 Bearer MCP 相关的信号** —— 默认凭据文件 `~/.dida365/token` 里是否有格式有效的 Token。它为 `false` 时默认 Bearer MCP 连接拿不到有效凭据：即使 `token_source` 显示 `file` 也一样，那种情况下凭据来自 `DIDA365_TOKEN_FILE` 覆盖，而该变量在插件级 helper 环境会被移除，属于本地/API 侧的假绿灯。该字段不判断手动 OAuth MCP 是否可用；已有可用的 OAuth 接入不因缺文件转入 Token 配置流程。
 
 `ok: false` 时状态里带 `error.code` 与 `error.message`，按「故障排查」处置。不要运行不带 `--check` 的辅助入口，也不要把它的认证头输出展示给用户。
 
@@ -84,10 +84,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check
 
 ## 连接验证
 
-1. **查看客户端状态**：在客户端运行 `/mcp`，找到插件服务器 `plugin:dida365-toolkit:dida365`，确认已连接且工具列表非空。
-2. **准备运行环境**：首次连接前先手动执行一次 Step 3 的自检，让 `uv` 完成环境准备，避免首次环境下载挤占客户端连接超时。
+1. **查看客户端状态**：在客户端运行 `/mcp`，找到当前生效的官方滴答 MCP 连接，确认已连接且工具列表非空。默认 Bearer 接入使用插件服务器 `plugin:dida365-toolkit:dida365`；手动 OAuth 接入按实际服务名验证，不要求插件服务器同时连接。
+2. **准备运行环境（仅默认 Bearer 接入）**：首次连接前先手动执行一次 Step 3 的自检，让 `uv` 完成环境准备，避免首次环境下载挤占客户端连接超时。手动 OAuth MCP 不运行 Token helper，不要求个人 Token 文件，也不以该自检结果判断 OAuth 是否可用。
 3. **只读验证调用**：通过 MCP 做一次只读操作（如列出清单、查询任务）。工具名以当前实际发现为准：插件模式下形如 `mcp__plugin_dida365-toolkit_dida365__<tool>`，不要凭记忆拼工具名。
-4. **可选：API 通道验证**：先用 `--dry-run` 看请求概要（不发请求、不需要 Token，退出码 `10`），再发一条只读 GET 确认 Token 在 API 通道可用：
+4. **可选：API 通道验证（已配置个人 Token 时）**：先用 `--dry-run` 看请求概要（不发请求、不需要 Token，退出码 `10`），再发一条只读 GET 确认 Token 在 API 通道可用。仅使用 OAuth 且没有个人 Token 时跳过正式 GET，不把 API 验证作为 OAuth MCP 可用的前提：
 
 ```bash
 # 预演：只输出请求概要
@@ -120,10 +120,11 @@ OAuth 交给客户端原生支持，不新建插件自己的 OAuth 客户端、�
 
 | 现象 | 原因与处置 |
 |---|---|
-| `TOKEN_MISSING`，或 MCP 侧没有可用凭据 | 默认凭据文件 `~/.dida365/token` 缺失且环境变量为空。按 Step 1/2 创建并写入，再用 `mcp_headers.py --check` 确认 `mcp_file_present: true`。 |
-| 仅 API 通道：本地/API 调用缺凭据 | 覆盖变量 `DIDA365_TOKEN_FILE` 只对本地/API 执行有效，检查它指向的覆盖文件是否存在、内容是否为一行纯 Token；MCP 侧与此无关，看 `mcp_file_present`。 |
+| `TOKEN_MISSING`，或默认 Bearer MCP 没有可用凭据 | 默认凭据文件 `~/.dida365/token` 缺失且环境变量为空。按 Step 1/2 创建并写入，再用 `mcp_headers.py --check` 确认 `mcp_file_present: true`。此要求不适用于已认证的手动 OAuth MCP。 |
+| `TOKEN_INVALID`，Token 格式无效 | 重新复制个人 Token，检查环境变量或凭据文件是否含内部空白、控制字符或非 ASCII 字符。凭据文件支持 UTF-8（含 BOM），无需回显 Token；修正后重新自检。 |
+| 仅 API 通道：本地/API 调用缺凭据 | 覆盖变量 `DIDA365_TOKEN_FILE` 只对本地/API 执行有效，检查它指向的覆盖文件是否存在、内容是否为一行纯 Token；默认 Bearer MCP 看 `mcp_file_present`，手动 OAuth MCP 与此无关。 |
 | `REGION_UNSUPPORTED`，区域检查失败 | `DIDA365_API_DOMAIN` 指向非国内域名。移除该变量或改为 `api.dida365.com`；不自动切换通道。 |
-| MCP 已连接但调用返回 401 | 凭据问题：Token 缺失、无效或过期。重新核对 Token 后更新凭据文件，再跑一次 `mcp_headers.py --check`。 |
+| MCP 已连接但调用返回 401 | 按生效的认证方式排查：默认 Bearer 接入核对个人 Token，必要时更新凭据文件并重新自检；手动 OAuth 接入检查客户端授权状态，由用户明确选择重新授权，不要求改为个人 Token。 |
 | 调用返回 403 | 权限问题：清单或操作权限不足。说明权限原因，不要一概描述成「令牌失效」，也不要换通道重发同一操作。 |
 | 仅使用 OAuth 却遇到 API 补缺 | 说明 API 通道需要个人 Token，可改在滴答应用内完成；不读取 OAuth 缓存，不新建插件 OAuth 客户端。 |
 | 未安装 `uv` | 提示先安装 `uv`（所有脚本以 `uv run` 执行），安装后回到 Step 3 自检。 |

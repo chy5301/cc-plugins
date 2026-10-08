@@ -19,8 +19,10 @@ version: 0.3.0
 
 ## 接入前提
 
-- **凭据来源**：MCP 通道固定使用默认凭据文件 `~/.dida365/token`；环境变量 `DIDA365_API_TOKEN` 是**可选且优先**的来源，但它只对本地/API 直接调用生效，不能替代默认凭据文件（原因与排查见 `tool-conventions.md` 第 8 节与 setup-guide）。
-- 没有可用凭据时，说明缺什么并转入 setup-guide，不要在本 skill 里改动认证配置。
+- **默认 Bearer 接入**：仅插件 `headersHelper` 模式要求默认凭据文件 `~/.dida365/token`；环境变量 `DIDA365_API_TOKEN` 是**可选且优先**的本地/API 来源，不能替代该模式的默认凭据文件（见 `tool-conventions.md` 第 8 节与 setup-guide）。
+- **已有 OAuth MCP 接入**：已认证且可用的手动 OAuth MCP 不需要个人 Token 或默认凭据文件，直接使用当前连接的工具；不因文件缺失转入 setup-guide，也不要求运行 Token helper 自检。
+- **API 补缺**：只有确认 MCP 缺口、需要正式调用 API 时才要求个人 Token；缺少时说明限制，由用户选择补配或在滴答应用中完成，不读取 OAuth 缓存，不改动现有 OAuth MCP。
+- 没有可用 MCP 接入或调用返回 401 时，说明原因并按当前认证方式转入 setup-guide；403 按权限问题处理。不自动切换通道或认证方式，也不在本 skill 里改配置。
 - 调用返回 401/403/429、超时或参数错误时，按 `tool-conventions.md` 第 9 节分类处置；这些是运行失败，不是能力缺口，不构成改用 API 重发同一操作、或更换认证方式的理由。
 
 ## 查询经官方 MCP 完成

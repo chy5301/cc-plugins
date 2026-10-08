@@ -22,7 +22,7 @@ def test_plugin_manifest_version_and_marketplace_sync():
     plugin = load_json(PLUGIN_ROOT / ".claude-plugin" / "plugin.json")
     market = load_json(REPO_ROOT / ".claude-plugin" / "marketplace.json")
     entry = next(item for item in market["plugins"] if item["name"] == "dida365-toolkit")
-    assert plugin["version"] == "0.6.0"
+    assert plugin["version"] == "0.6.1"
     assert plugin["description"] == entry["description"]
 
 
