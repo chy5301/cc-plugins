@@ -45,3 +45,15 @@ def test_write_skills_cover_status_and_partial_failure():
             assert needle in text, f"{name} 缺少：{needle}"
         for forbidden in ["dida365_cli.py", "cli-conventions.md", "退出码 10", "tools: Bash"]:
             assert forbidden not in text, f"{name} 仍包含：{forbidden}"
+
+
+def test_organize_skills_reference_discovery_protocol():
+    for name, needles in {
+        "task-organize": ["tool-conventions.md", "预演", "确认"],
+        "project-management": ["tool-conventions.md", "dry-run", "DELETE /open/v1/project"],
+    }.items():
+        text = read_skill(name)
+        for needle in needles:
+            assert needle in text, f"{name} 缺少：{needle}"
+        for forbidden in ["dida365_cli.py", "cli-conventions.md", "退出码 10", "tools: Bash"]:
+            assert forbidden not in text, f"{name} 仍包含：{forbidden}"
