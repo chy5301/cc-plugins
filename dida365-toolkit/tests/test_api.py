@@ -215,6 +215,17 @@ def test_error_mapping(monkeypatch, capsys, status, error_code, exit_code):
     assert "dp_test_token" not in json.dumps(envelope)
 
 
+def test_unauthorized_body_token_is_redacted(monkeypatch, capsys):
+    def handler(request):
+        return httpx.Response(401, json={"error": "invalid token dp_test_token supplied"})
+
+    code, envelope = run_with_transport(monkeypatch, capsys, handler, GET_PROJECT)
+    assert code == 4
+    assert envelope["error"]["code"] == "UNAUTHORIZED"
+    assert "[REDACTED]" in envelope["error"]["message"]
+    assert "dp_test_token" not in json.dumps(envelope)
+
+
 def test_timeout_no_retry(monkeypatch, capsys):
     calls = []
 
