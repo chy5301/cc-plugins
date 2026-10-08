@@ -21,3 +21,15 @@ def test_setup_guide_token_first_then_oauth():
         assert needle in text, f"setup-guide 缺少：{needle}"
     for forbidden in ["dida365_cli.py", "cli-conventions.md", "tools: Bash"]:
         assert forbidden not in text, f"setup-guide 仍包含：{forbidden}"
+
+
+def test_query_skills_use_mcp_protocol():
+    for name, needles in {
+        "task-query": ["tool-conventions.md", "截止", "时区"],
+        "daily-review": ["tool-conventions.md", "inbox", "只读", "覆盖"],
+    }.items():
+        text = read_skill(name)
+        for needle in needles:
+            assert needle in text, f"{name} 缺少：{needle}"
+        for forbidden in ["dida365_cli.py", "cli-conventions.md", "--body", "退出码 10", "tools: Bash"]:
+            assert forbidden not in text, f"{name} 仍包含：{forbidden}"
