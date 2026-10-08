@@ -39,7 +39,7 @@ version: 0.2.0
 
 ### Step 2: 写入凭据文件
 
-MCP 连接的凭据来自凭据文件，默认路径 `~/.dida365/token`（可用环境变量 `DIDA365_TOKEN_FILE` 覆盖为其他路径）。文件内容为一行纯 Token，不要加引号或多余空白。
+MCP 连接的凭据来自默认凭据文件 `~/.dida365/token`。环境变量 `DIDA365_TOKEN_FILE` **只影响本地/API 执行**（它的名称含 `TOKEN`，在插件级 helper 环境同样会被移除），MCP 通道固定读取默认路径；需要把文件放到别处时，用符号链接/联接点让默认路径指向目标，不要指望用覆盖变量改动 MCP 的读取位置。文件内容为一行纯 Token，不要加引号或多余空白。
 
 若环境变量 `DIDA365_API_TOKEN` 已经配置好，可用一条命令生成凭据文件：
 
@@ -55,11 +55,11 @@ POSIX 系统建议收紧权限：
 chmod 600 ~/.dida365/token
 ```
 
-**位置要求**：该文件必须留在仓库之外，也必须留在 `/sync-config` 同步范围（`~/.claude/`）之外 —— 默认的 `~/.dida365/token` 同时满足这两点，不要把 Token 放进项目目录或 `~/.claude/`；用 `DIDA365_TOKEN_FILE` 覆盖时同样遵守。Windows 下依赖用户目录权限，不要放进共享目录。
+**位置要求**：该文件及其链接目标必须留在仓库之外，也必须留在 `/sync-config` 同步范围（`~/.claude/`）之外 —— 默认的 `~/.dida365/token` 同时满足这两点，不要把 Token 放进项目目录或 `~/.claude/`；用符号链接/联接点改放到别处时同样遵守。Windows 下依赖用户目录权限，不要放进共享目录。
 
-**为什么需要文件而不是环境变量**：插件级 `headersHelper` 运行时，Claude Code 会移除名称含 `TOKEN`/`SECRET`/`PASSWORD`/`KEY`/`AUTH` 的环境变量，并要求这类脚本改为从文件或凭据存储读取凭据（官方文档《Which variables a helper can read》）。因此 `DIDA365_API_TOKEN` 在 MCP 连接时通常不可见，实际凭据来源是凭据文件。
+**为什么需要文件而不是环境变量**：插件级 `headersHelper` 运行时，Claude Code 会移除名称含 `TOKEN`/`SECRET`/`PASSWORD`/`KEY`/`AUTH` 的环境变量，并要求这类脚本改为从文件或凭据存储读取凭据（官方文档《Which variables a helper can read》）。因此 `DIDA365_API_TOKEN` 在 MCP 连接时通常不可见，实际凭据来源是默认凭据文件；`DIDA365_TOKEN_FILE` 的名称同样含 `TOKEN`，同样会被移除，所以覆盖只服务于本地/API 执行，不能用来改变 MCP 的读取位置。
 
-环境变量 `DIDA365_API_TOKEN` 只是**可选且优先**的来源：本地直接调用 API 执行器时，设置了就以它为准，未设置才回退凭据文件。它不能替代凭据文件。Token 不得出现在命令行参数、请求体、日志或任何输出中。
+环境变量 `DIDA365_API_TOKEN` 只是**可选且优先**的来源：本地直接调用 API 执行器时，设置了就以它为准，未设置才回退凭据文件。它不能替代默认凭据文件。Token 不得出现在命令行参数、请求体、日志或任何输出中。
 
 ### Step 3: 无秘密自检
 
@@ -67,11 +67,10 @@ chmod 600 ~/.dida365/token
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check
 ```
 
-输出是不含秘密的 JSON 状态，重点看 `token_source`：
+输出是不含秘密的 JSON 状态，重点看两个字段：
 
-- `env`：本次由环境变量提供 —— 注意 MCP 连接通常看不到它，仍应写好凭据文件
-- `file`：凭据来自凭据文件，符合 MCP 连接的要求
-- `null`（`token_present: false`）：两处都没有，回到 Step 1/2
+- `token_source`：`env` 表示本次由环境变量提供（注意 MCP 连接看不到它，仍要写好默认凭据文件）、`file` 表示来自当前生效的凭据文件、`null`（`token_present: false`）表示两处都没有，回到 Step 1/2。
+- `mcp_file_present`：**MCP 相关的信号** —— 默认凭据文件 `~/.dida365/token` 里是否有凭据。它为 `false` 时 MCP 连接拿不到凭据：即使 `token_source` 显示 `file` 也一样，那种情况下凭据来自 `DIDA365_TOKEN_FILE` 覆盖，而该变量在插件级 helper 环境会被移除，属于本地/API 侧的假绿灯。
 
 `ok: false` 时状态里带 `error.code` 与 `error.message`，按「故障排查」处置。不要运行不带 `--check` 的辅助入口，也不要把它的认证头输出展示给用户。
 
@@ -121,7 +120,8 @@ OAuth 交给客户端原生支持，不新建插件自己的 OAuth 客户端、�
 
 | 现象 | 原因与处置 |
 |---|---|
-| `TOKEN_MISSING`，或没有可用凭据 | 凭据文件缺失且环境变量为空。按 Step 1/2 创建并写入；确认 `DIDA365_TOKEN_FILE` 没把路径指到别处。 |
+| `TOKEN_MISSING`，或 MCP 侧没有可用凭据 | 默认凭据文件 `~/.dida365/token` 缺失且环境变量为空。按 Step 1/2 创建并写入，再用 `mcp_headers.py --check` 确认 `mcp_file_present: true`。 |
+| 仅 API 通道：本地/API 调用缺凭据 | 覆盖变量 `DIDA365_TOKEN_FILE` 只对本地/API 执行有效，检查它指向的覆盖文件是否存在、内容是否为一行纯 Token；MCP 侧与此无关，看 `mcp_file_present`。 |
 | `REGION_UNSUPPORTED`，区域检查失败 | `DIDA365_API_DOMAIN` 指向非国内域名。移除该变量或改为 `api.dida365.com`；不自动切换通道。 |
 | MCP 已连接但调用返回 401 | 凭据问题：Token 缺失、无效或过期。重新核对 Token 后更新凭据文件，再跑一次 `mcp_headers.py --check`。 |
 | 调用返回 403 | 权限问题：清单或操作权限不足。说明权限原因，不要一概描述成「令牌失效」，也不要换通道重发同一操作。 |

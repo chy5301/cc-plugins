@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+import dida365_auth as auth
 from dida365_auth import (
     APPROVED_API_HOSTS,
     APPROVED_MCP_HOSTS,
@@ -12,6 +13,8 @@ from dida365_auth import (
     AuthConfigError,
     authorization_header,
     check_domain_config,
+    read_default_token_file,
+    read_token_file,
     resolve_config,
     resolve_token,
     token_file_path,
@@ -82,6 +85,47 @@ def test_token_source_reports_env_file_or_none(tmp_path):
 def test_token_file_path_override_and_default():
     assert token_file_path({}) == DEFAULT_TOKEN_FILE
     assert token_file_path({TOKEN_FILE_ENV: "~/custom/token"}) == Path.home() / "custom" / "token"
+
+
+def sandbox_home(tmp_path, monkeypatch, token=None):
+    """把 home 重定向到临时目录，确保测试绝不读取真实 ~/.dida365/token。
+
+    DEFAULT_TOKEN_FILE 在模块导入时按真实 home 解析，因此除设置 USERPROFILE/HOME 外，
+    还需把该常量一并指向沙箱内的同一路径。
+    """
+    home = tmp_path / "home"
+    target = home / ".dida365" / "token"
+    if token is None:
+        home.mkdir(parents=True, exist_ok=True)
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(token, encoding="utf-8")
+    for name in ("USERPROFILE", "HOME"):
+        monkeypatch.setenv(name, str(home))
+    monkeypatch.setattr(auth, "DEFAULT_TOKEN_FILE", target)
+    return target
+
+
+def test_read_default_token_file_returns_default_file_token(tmp_path, monkeypatch):
+    sandbox_home(tmp_path, monkeypatch, token="dp_default_token\n")
+    assert read_default_token_file() == "dp_default_token"
+
+
+def test_read_default_token_file_ignores_override(tmp_path, monkeypatch):
+    # 覆盖只对本地/API 执行有效：插件级 helper 环境里 DIDA365_TOKEN_FILE 同样被移除
+    sandbox_home(tmp_path, monkeypatch)
+    override = tmp_path / "elsewhere" / "token"
+    override.parent.mkdir(parents=True, exist_ok=True)
+    override.write_text("dp_override_token", encoding="utf-8")
+    assert read_default_token_file() is None
+    assert read_token_file({TOKEN_FILE_ENV: str(override)}) == "dp_override_token"
+
+
+def test_read_default_token_file_treats_undecodable_as_missing(tmp_path, monkeypatch):
+    target = sandbox_home(tmp_path, monkeypatch)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"\xff\xfe\x00")
+    assert read_default_token_file() is None
 
 
 def test_domain_default_and_approved_ok():

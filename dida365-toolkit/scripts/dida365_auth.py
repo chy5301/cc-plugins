@@ -46,13 +46,26 @@ def token_file_path(env: Mapping[str, str] | None = None) -> Path:
     return DEFAULT_TOKEN_FILE
 
 
-def read_token_file(env: Mapping[str, str] | None = None) -> str | None:
+def _read_file(path: Path) -> str | None:
     try:
-        text = token_file_path(env).read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8")
     except (OSError, ValueError):
         return None
     token = text.strip()
     return token or None
+
+
+def read_token_file(env: Mapping[str, str] | None = None) -> str | None:
+    return _read_file(token_file_path(env))
+
+
+def read_default_token_file() -> str | None:
+    """读取默认凭据文件，忽略 `DIDA365_TOKEN_FILE` 覆盖，供 MCP 相关自检使用。
+
+    插件级 helper 环境中名称含 TOKEN 的环境变量（含覆盖变量本身）同样会被移除，
+    覆盖只对本地/API 执行有效；MCP 固定读取默认路径，故自检需单独暴露默认文件是否有凭据。
+    """
+    return _read_file(DEFAULT_TOKEN_FILE)
 
 
 def token_source(env: Mapping[str, str] | None = None) -> str | None:

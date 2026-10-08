@@ -91,9 +91,9 @@ Token 不出现在命令行参数、请求体或任何输出中；凭据由共�
 
 - **仅支持国内**：本版本仅支持国内滴答服务，API 出口固定 `https://api.dida365.com`、MCP 出口固定 `https://mcp.dida365.com`。可识别的国际/其他域名配置（如 `DIDA365_API_DOMAIN` 指向 `api.ticktick.com`）会在发送任何凭据之前失败，不做静默降级；也不能从 Token 字符串识别地区。
 - **Token 不出现在参数、日志或输出中**：不回显 Token，不把 Token 写入命令行参数、请求体、`--check` 输出、错误回显或 metadata。
-- **MCP 通道凭据来自凭据文件**：默认 `~/.dida365/token`，可用 `DIDA365_TOKEN_FILE` 覆盖。插件级 `headersHelper` 运行时，Claude Code 会移除名称含 TOKEN/SECRET/PASSWORD/KEY/AUTH 的环境变量，因此 `DIDA365_API_TOKEN` 在 MCP 连接时通常不可见；环境变量只是本地直调时优先生效的可选来源。凭据文件位于仓库与 `/sync-config` 之外，不随插件同步。
+- **MCP 通道凭据固定来自默认凭据文件**：默认 `~/.dida365/token`。插件级 `headersHelper` 运行时，Claude Code 会移除名称含 TOKEN/SECRET/PASSWORD/KEY/AUTH 的环境变量，因此 `DIDA365_API_TOKEN` 在 MCP 连接时通常不可见；环境变量只是本地直调时优先生效的可选来源。`DIDA365_TOKEN_FILE` 的名称同样含 `TOKEN`、同样会被移除，所以**覆盖只对本地/API 执行有效**，MCP 固定读取默认路径；需要异地存放时用符号链接/联接点把默认路径指过去。凭据文件及其链接目标都位于仓库与 `/sync-config` 之外，不随插件同步。
 - **不读取 MCP OAuth 缓存**：OAuth 只覆盖 MCP 接入，API 补缺需要个人 Token；不得从客户端缓存提取凭据，也不得把 OAuth 当作 API 凭据来源。
-- **自检用无秘密模式**：`uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check` 只输出配置状态（含 `token_source`、`token_present`），可用于排查"凭据来自环境变量还是凭据文件"；不要运行不带 `--check` 的辅助入口，也不要把它的认证头输出展示给用户。
+- **自检用无秘密模式**：`uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check` 只输出配置状态（含 `token_source`、`token_present`、`mcp_file_present`），可用于排查"凭据来自环境变量还是凭据文件"，以及 MCP 侧（默认文件）是否真的有凭据——`mcp_file_present` 为 `false` 时 MCP 连接拿不到凭据，即使 `token_source` 显示 `file`，那也只是本地/API 侧的假绿灯；不要运行不带 `--check` 的辅助入口，也不要把它的认证头输出展示给用户。
 - **执行器边界**：`dida365_api.py` 不跟随重定向、不自动重试任何请求、不覆盖 `/oauth/` 授权类操作；预演与错误信息同样不含凭据。
 
 ## 9. 失败分类

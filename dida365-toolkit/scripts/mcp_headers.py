@@ -10,6 +10,7 @@
 插件级 headersHelper 运行前，客户端会移除名称含 TOKEN/SECRET/PASSWORD/KEY/AUTH 的环境变量，
 因此生产环境下 DIDA365_API_TOKEN 不可见，凭据通常来自凭据文件：
 默认 ~/.dida365/token，可用 DIDA365_TOKEN_FILE 覆盖；该环境变量仅作为本地直调时的优先来源。
+插件级 helper 只可能读取默认凭据文件：覆盖变量名同样含 TOKEN，会被一并移除。
 
 stdout 必须是单个纯 JSON 对象：客户端整体解析其输出并合并为连接请求头，
 任何附加文本（日志、提示）都会导致解析失败，故诊断信息一律走 stderr。
@@ -36,6 +37,7 @@ def _status(server_url: str, ok: bool, error: auth.AuthConfigError | None = None
         "domain": os.environ.get(auth.DOMAIN_ENV) or auth.API_BASE_URL,
         "token_source": source,
         "token_present": source is not None,
+        "mcp_file_present": auth.read_default_token_file() is not None,
     }
     if error is not None:
         status["error"] = {"code": error.code, "message": error.message}
