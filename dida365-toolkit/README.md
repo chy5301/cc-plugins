@@ -1,46 +1,68 @@
 # dida365-toolkit
 
-滴答清单一站式工具箱。提供 7 个 Skills 覆盖任务和项目的完整生命周期管理，包括增删改查、完成、移动、高级筛选和每日回顾。
+滴答清单一站式工具箱。提供 7 个 Skills 覆盖任务和项目的完整生命周期管理，包括增删改查、完成、放弃、移动、高级筛选和每日回顾。
+
+**本版本仅支持国内滴答服务**：API 出口固定 `https://api.dida365.com`、MCP 出口固定 `https://mcp.dida365.com`。国际 TickTick 不再支持。
 
 ## 架构
 
-采用**纯 Skill + Python CLI 脚本**架构，不依赖 MCP 协议，安装即用：
+采用 **Skills + 官方远程 MCP + 通用 API 补缺脚本** 架构：
 
 ```
-Skill (Markdown 指令) → Bash: uv run dida365_cli.py <command> → 滴答清单 Open API
+Skill (Markdown 指令)
+  ├─ 默认：官方滴答 MCP（.mcp.json 注册的 dida365 服务，远程 HTTP，凭据由 headersHelper 注入）
+  └─ 补缺：uv run scripts/dida365_api.py --method ... --path /open/v1/...  → 滴答官方 Open API
 ```
 
-兼容 Claude Code（plugin 形式）和其他 AI Agent（skill 形式）。
+- **默认走 MCP**：任务、清单、状态、查询与移动等操作优先用官方 MCP 工具完成；工具名以运行时实际发现到的 schema 为准。
+- **仅在确认缺口时补缺**：只有 MCP 明确缺少所需工具或必需参数（例如删除单个清单）时，才按 `references/tool-conventions.md` 的能力发现协议调用通用 API 执行器。
+- **运行失败不是切换理由**：MCP 返回 401/403/429、超时或参数错误时按失败分类处置，不因此改用 API 重发同一操作，也不因此更换认证方式。
+- 兼容 Claude Code（plugin 形式）和其他 AI Agent（skill 形式）。
 
-## 0.5.0 变更
+### 能力边界
 
-- **通用选项**：所有子命令都支持 `--fields`（顶层字段掩码，减少返回体积）和 `--dry-run`（只输出将要发起的请求，不真正执行，退出码 `10`，不需要 Token）
-- **响应信封**：成功时带 `metadata`（`command`、`took_ms`、`result_count` 等）；退出码为 `0` 成功 / `1` 一般错误 / `2` 参数错误 / `3` 不存在 / `4` 权限不足 / `10` dry-run。详见 [references/cli-conventions.md](references/cli-conventions.md)
-- **触发限定平台**：7 个 skill 只在用户点名"滴答清单""滴答""TickTick"，或本次对话已在操作滴答清单时触发；若同时装有其他待办工具（如 mstodo-toolkit）且无法确定平台，会先向用户确认
-- **放弃任务**：`update-task` 支持 `--body '{"status":-1}'`（`0` 可恢复）。任务的 status 是 `-1` 放弃 / `0` 未完成 / `2` 已完成，不要与子任务的 `1`（已完成）混淆
+- 能力上限是官方 MCP 与官方 Open API，二者都是滴答 app 的子集：标签的独立增删改、习惯打卡、番茄钟、智能清单、子任务的精细排序等 app 功能未暴露，Agent 无法做到。
+- 通用执行器不需要为具体端点新增子命令；新发现的接口也不会因为一次调用就自动成为长期支持能力。
 
-## 0.4.0 调用方式变更（破坏性）
+## 认证
 
-自 0.4.0 起，有请求体的命令（create-task/update-task/create-project/update-project/
-filter-tasks/query-completed/move-tasks）的字段不再用独立 flag，统一经 `--body` JSON 传入。
+MCP 接入与 API 补缺共用**同一枚凭据**：国内版个人 API Token（网页版 头像 → 设置 → 账户与安全 → API 口令），只需配置一次。
 
-| 旧（≤0.3.1） | 新（≥0.4.0） |
-|---|---|
-| `create-task --project P --title 买菜 --priority 3` | `create-task --project P --body '{"title":"买菜","priority":3}'` |
-| `filter-tasks --priority 3,5 --status 0` | `filter-tasks --body '{"priority":[3,5],"status":[0]}'` |
-| `move-tasks --from A --to B --tasks T1` | `move-tasks --body '[{"fromProjectId":"A","toProjectId":"B","taskId":"T1"}]'` |
+| 来源 | 适用范围 | 说明 |
+|------|----------|------|
+| 凭据文件（**主来源**） | MCP 与 API | 默认 `~/.dida365/token`，内容为一行纯 Token；MCP 通道固定读取该路径 |
+| 环境变量 `DIDA365_API_TOKEN` | 仅本地/API 直调 | **可选且优先**：设置了就以它为准，未设置才回退凭据文件；无法替代凭据文件 |
+| OAuth | 仅 MCP 接入 | 备选，只在用户明确选择时启用；API 补缺仍需要个人 Token |
 
-- 字段定义：`schema <操作>`（如 `schema create-task`）。
-- schema 未收录的字段/端点：`raw --method --path --body` 透传。
+**为什么 MCP 需要凭据文件**：插件级 `headersHelper` 运行时，Claude Code 会移除名称含 `TOKEN`/`SECRET`/`PASSWORD`/`KEY`/`AUTH` 的环境变量，并要求 helper 改为从文件或凭据存储读取凭据。因此 `DIDA365_API_TOKEN` 在 MCP 连接时通常不可见，MCP 的实际凭据来源是默认凭据文件 `~/.dida365/token`；`DIDA365_TOKEN_FILE` 的名称同样含 `TOKEN`、同样会被移除，它的覆盖**只对本地/API 执行有效**，不能改变 MCP 的读取位置——需要异地存放时用符号链接/联接点把默认路径指过去。
 
-### 完备性与边界
+写入凭据文件：
 
-- CLI 子命令是高频操作的语义入口；**任何 Open API 能做的操作都可经 `--body` 或 `raw` 完成，CLI 不限制能力**。
-- 能力上限是滴答清单 **Open API**，它只是 app 的子集。以下 app 功能 **Open API 未暴露、agent 无法做到**：标签的独立增删改、习惯打卡、番茄钟、智能清单、子任务的精细排序等。
+```bash
+mkdir -p ~/.dida365
 
-### skill version 说明
+printf '%s' '<你的 Token>' > ~/.dida365/token
 
-各 SKILL.md 的 `version` 是该 skill 自身的迭代标识，**与 plugin 发布版本解耦**，不要求逐一对齐 plugin 版本。
+chmod 600 ~/.dida365/token   # POSIX 系统建议收紧权限
+```
+
+无秘密自检（只输出配置状态，不回显 Token）：
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/mcp_headers.py --check
+```
+
+重点看两个字段：`token_source`（本次凭据来自环境变量还是文件）与 `mcp_file_present`（默认凭据文件里是否真有凭据，即 MCP 侧能否取到）。`mcp_file_present` 为 `false` 时 MCP 连接拿不到凭据，即使 `token_source` 显示 `file` 也一样——那只是本地/API 侧的假绿灯。
+
+凭据文件及其链接目标必须留在仓库与 `/sync-config` 同步范围（`~/.claude/`）之外；Token 不得出现在命令行参数、请求体、日志或任何输出中。
+
+## 环境变量
+
+| 变量 | 必需 | 说明 |
+|------|------|------|
+| `DIDA365_API_TOKEN` | 否 | 可选且优先的凭据来源，**仅本地/API 直调生效**（MCP 连接看不到它） |
+| `DIDA365_TOKEN_FILE` | 否 | 凭据文件路径覆盖，仅本地/API 执行生效 |
+| `DIDA365_API_DOMAIN` | 否 | 仅接受 `api.dida365.com`（或留空）；其他值（如 `api.ticktick.com`）会被拒绝 |
 
 ## 安装
 
@@ -52,54 +74,61 @@ filter-tasks/query-completed/move-tasks）的字段不再用独立 flag，统一
 claude --plugin-dir ./dida365-toolkit
 ```
 
-### 环境变量
-
-| 变量 | 必需 | 说明 |
-|------|------|------|
-| `DIDA365_API_TOKEN` | 是 | 滴答清单 API 口令（网页版 头像→设置→账户与安全→API 口令） |
-| `DIDA365_API_DOMAIN` | 否 | API 域名，默认 `api.dida365.com`，国际版用 `api.ticktick.com` |
-
 ## Skills
 
 | Skill | 说明 |
 |-------|------|
-| `setup-guide` | 配置 API Token 和验证连接 |
-| `task-crud` | 创建、查看、更新、删除、放弃任务（含子任务） |
+| `setup-guide` | 配置凭据文件与 MCP 接入、无秘密自检、连接验证与故障排查（OAuth 备选） |
+| `task-crud` | 创建、查看、更新、删除、放弃/恢复任务（含子任务） |
 | `task-complete` | 标记任务为已完成 |
-| `task-organize` | 在项目间移动和整理任务 |
+| `task-organize` | 在项目（清单）间移动和整理任务 |
 | `task-query` | 按优先级/标签/日期/状态筛选任务，查询已完成任务 |
-| `project-management` | 项目（清单）的完整增删改查 |
+| `project-management` | 项目（清单）的完整增删改查（删除清单走 API 补缺，先 dry-run） |
 | `daily-review` | 每日任务回顾：今日待办、逾期任务、高优先级概览 |
 
-## CLI 脚本
+七个 Skill 统一引用 `references/tool-conventions.md`（通道选择、能力发现协议、批量部分失败、安全边界与失败分类）；官方端点来源与已验证限制见 `references/api-reference.md`。
 
-`scripts/dida365_cli.py` 提供 16 个子命令（14 个 API 操作命令，外加 schema 自省与 raw 透传），覆盖滴答清单 Open API 全部 13 个端点：
+## API 补缺执行器
+
+`scripts/dida365_api.py` 是**通用执行器，不是端点专用 CLI**：单次请求、固定出口、不跟随重定向、不自动重试、不为具体端点新增子命令。
 
 ```bash
-# 项目操作
-uv run scripts/dida365_cli.py list-projects
-uv run scripts/dida365_cli.py get-project <projectId>
-uv run scripts/dida365_cli.py get-project-data <projectId>
-uv run scripts/dida365_cli.py create-project --body '{"name":"名称"}'
-uv run scripts/dida365_cli.py update-project <projectId> --body '{"name":"新名称"}'
-uv run scripts/dida365_cli.py delete-project <projectId>
-
-# 任务操作
-uv run scripts/dida365_cli.py get-task <projectId> <taskId>
-uv run scripts/dida365_cli.py create-task --project <projectId> --body '{"title":"标题"}'
-uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --body '{"title":"新标题"}'
-uv run scripts/dida365_cli.py update-task <taskId> --project <projectId> --body '{"status":-1}'   # 放弃任务
-uv run scripts/dida365_cli.py complete-task <projectId> <taskId>
-uv run scripts/dida365_cli.py delete-task <projectId> <taskId>
-uv run scripts/dida365_cli.py move-tasks --body '[{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId1>"},{"fromProjectId":"<fromId>","toProjectId":"<toId>","taskId":"<taskId2>"}]'
-
-# 查询操作（字段定义见 `schema <操作>`；schema 外字段用 `raw`）
-uv run scripts/dida365_cli.py filter-tasks --body '{"priority":[3,5],"status":[0]}'
-uv run scripts/dida365_cli.py query-completed --body '{"startDate":"2026-04-01T00:00:00+0800"}'
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_api.py --method <METHOD> --path <PATH> [--query '<JSON>'] [--body '<JSON>'] [--fields a,b] [--dry-run]
 ```
+
+```bash
+# 预演：输出方法、路径与请求体，不发请求、不需要 Token（退出码 10）
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_api.py --method POST --path /open/v1/task --body '{"title":"示例"}' --dry-run
+
+# 只读查询：列出清单并裁剪输出顶层字段
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_api.py --method GET --path /open/v1/project --fields id,name
+
+# 删除清单补缺：先用 --dry-run 展示目标与连带影响，确认后去掉 --dry-run 执行
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_api.py --method DELETE --path /open/v1/project/<id> --dry-run
+```
+
+- `--path` 必须以 `/open/v1/` 开头；`--query`/`--body` 传 JSON；`--fields` 只在输出侧裁剪顶层字段，不减少网络下载量。
+- `--dry-run` 是本地构造的预演，不等于服务端验证；写操作先预演、执行后读回核验。
+- 退出码：`0` 成功 / `1` 一般错误 / `2` 参数错误 / `3` 不存在 / `4` 凭据或权限不足 / `10` dry-run。
+
+## 0.6.0 迁移说明（破坏性）
+
+- **改用官方远程 MCP**：任务、清单、状态、查询与移动默认经 `.mcp.json` 注册的官方滴答 MCP 完成；MCP 凭据固定来自默认凭据文件 `~/.dida365/token`。
+- **旧命令式 CLI 参数不再可用**：旧命令式 CLI 的子命令与 `--body` 等参数形式（含 schema 自省与 raw 透传）已全部移除，端点专用子命令不再提供；MCP 缺口统一走通用 API 执行器（`--method` + `--path` + `--fields` + `--dry-run`）。
+- **国际 TickTick 不再支持**：只支持国内滴答服务，API 出口固定 `https://api.dida365.com`、MCP 出口固定 `https://mcp.dida365.com`；`DIDA365_API_DOMAIN` 指向 `api.ticktick.com` 等国际/其他域名时会被拒绝，且失败发生在发送任何凭据之前，不做静默降级。
+- **认证方式不自动切换**：401/403/429/超时等失败都不自动换通道或换认证方式；OAuth 只在用户明确选择时用于 MCP 接入，不覆盖 API 补缺。
+- 各 SKILL.md 的 `version` 是该 skill 自身的迭代标识，与 plugin 发布版本解耦。
 
 ## 依赖
 
 - Python >= 3.10
 - [uv](https://docs.astral.sh/uv/)（自动管理 Python 依赖）
-- httpx（通过 PEP 723 内联声明，`uv run` 自动安装）
+- httpx（仅 API 执行器需要，通过 PEP 723 内联声明，`uv run` 自动安装）
+
+## 测试
+
+在仓库根目录执行：
+
+```bash
+uv run --with pytest --with httpx pytest dida365-toolkit/tests -q
+```
