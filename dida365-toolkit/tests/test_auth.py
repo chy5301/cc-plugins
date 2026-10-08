@@ -79,8 +79,12 @@ def test_validate_origin_keeps_host_sets_separate():
 
 def test_error_messages_and_repr_never_contain_token():
     with pytest.raises(AuthConfigError) as excinfo:
-        validate_origin("https://evil.example/", APPROVED_API_HOSTS)
+        resolve_config(
+            {"DIDA365_API_TOKEN": "dp_test_token", "DIDA365_API_DOMAIN": "api.ticktick.com"}
+        )
     assert "dp_test_token" not in str(excinfo.value)
+    assert "dp_test_token" not in repr(excinfo.value)
+    assert str(AuthConfigError("X", "m", "s")) == "m"
 
 
 def test_resolve_config_checks_domain_before_token():
