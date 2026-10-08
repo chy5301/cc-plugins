@@ -1,4 +1,7 @@
 import json
+import tempfile
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -9,6 +12,9 @@ from dida365_api import (
     main,
     validate_path,
 )
+
+# 保证不存在的凭据文件：父目录随机且从不创建，测试绝不读取真实 ~/.dida365/token
+MISSING_TOKEN_FILE = str(Path(tempfile.gettempdir()) / f"dida365-tests-{uuid4().hex}" / "token")
 
 
 def run_main(argv, capsys):
@@ -237,6 +243,7 @@ def test_connection_error_no_retry(monkeypatch, capsys):
 
 def test_token_missing_fails_before_client(monkeypatch, capsys):
     monkeypatch.delenv("DIDA365_API_TOKEN", raising=False)
+    monkeypatch.setenv("DIDA365_TOKEN_FILE", MISSING_TOKEN_FILE)
 
     def boom():
         raise AssertionError("缺 Token 时不得创建 client")

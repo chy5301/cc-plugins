@@ -1,19 +1,30 @@
+import tempfile
+from pathlib import Path
+from uuid import uuid4
+
 import pytest
 
 from dida365_auth import (
     APPROVED_API_HOSTS,
     APPROVED_MCP_HOSTS,
+    DEFAULT_TOKEN_FILE,
+    TOKEN_FILE_ENV,
     AuthConfigError,
     authorization_header,
     check_domain_config,
     resolve_config,
     resolve_token,
+    token_file_path,
+    token_source,
     validate_origin,
 )
 
+# 保证不存在的凭据文件：父目录随机且从不创建，测试绝不读取真实 ~/.dida365/token
+MISSING_TOKEN_FILE = str(Path(tempfile.gettempdir()) / f"dida365-tests-{uuid4().hex}" / "token")
+
 
 def env(**overrides):
-    base = {"DIDA365_API_TOKEN": "dp_test_token"}
+    base = {"DIDA365_API_TOKEN": "dp_test_token", TOKEN_FILE_ENV: MISSING_TOKEN_FILE}
     base.update(overrides)
     return base
 
@@ -24,9 +35,44 @@ def test_resolve_token_ok():
 
 def test_resolve_token_missing():
     with pytest.raises(AuthConfigError) as excinfo:
-        resolve_token({})
+        resolve_token({TOKEN_FILE_ENV: MISSING_TOKEN_FILE})
     assert excinfo.value.code == "TOKEN_MISSING"
     assert "DIDA365_API_TOKEN" in excinfo.value.message
+    assert "凭据文件" in excinfo.value.message
+
+
+def test_resolve_token_from_file(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("dp_file_token\n", encoding="utf-8")
+    assert resolve_token({TOKEN_FILE_ENV: str(token_file)}) == "dp_file_token"
+
+
+def test_env_token_wins_over_file(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("dp_file_token\n", encoding="utf-8")
+    assert resolve_token(env(DIDA365_TOKEN_FILE=str(token_file))) == "dp_test_token"
+
+
+def test_whitespace_only_file_is_missing(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("   \n\t\n", encoding="utf-8")
+    with pytest.raises(AuthConfigError) as excinfo:
+        resolve_token({TOKEN_FILE_ENV: str(token_file)})
+    assert excinfo.value.code == "TOKEN_MISSING"
+    assert "凭据文件" in excinfo.value.message
+
+
+def test_token_source_reports_env_file_or_none(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("dp_file_token", encoding="utf-8")
+    assert token_source({TOKEN_FILE_ENV: MISSING_TOKEN_FILE}) is None
+    assert token_source({TOKEN_FILE_ENV: str(token_file)}) == "file"
+    assert token_source(env(DIDA365_TOKEN_FILE=str(token_file))) == "env"
+
+
+def test_token_file_path_override_and_default():
+    assert token_file_path({}) == DEFAULT_TOKEN_FILE
+    assert token_file_path({TOKEN_FILE_ENV: "~/custom/token"}) == Path.home() / "custom" / "token"
 
 
 def test_domain_default_and_approved_ok():
@@ -80,7 +126,11 @@ def test_validate_origin_keeps_host_sets_separate():
 def test_error_messages_and_repr_never_contain_token():
     with pytest.raises(AuthConfigError) as excinfo:
         resolve_config(
-            {"DIDA365_API_TOKEN": "dp_test_token", "DIDA365_API_DOMAIN": "api.ticktick.com"}
+            {
+                "DIDA365_API_TOKEN": "dp_test_token",
+                "DIDA365_API_DOMAIN": "api.ticktick.com",
+                TOKEN_FILE_ENV: MISSING_TOKEN_FILE,
+            }
         )
     assert "dp_test_token" not in str(excinfo.value)
     assert "dp_test_token" not in repr(excinfo.value)
@@ -89,7 +139,7 @@ def test_error_messages_and_repr_never_contain_token():
 
 def test_resolve_config_checks_domain_before_token():
     with pytest.raises(AuthConfigError) as excinfo:
-        resolve_config({"DIDA365_API_DOMAIN": "api.ticktick.com"})
+        resolve_config({"DIDA365_API_DOMAIN": "api.ticktick.com", TOKEN_FILE_ENV: MISSING_TOKEN_FILE})
     assert excinfo.value.code == "REGION_UNSUPPORTED"
 
 

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Mapping
 from urllib.parse import urlsplit
 
@@ -17,6 +18,8 @@ APPROVED_MCP_HOSTS = frozenset({"mcp.dida365.com"})
 APPROVED_DOMAINS = frozenset({"api.dida365.com"})
 TOKEN_ENV = "DIDA365_API_TOKEN"
 DOMAIN_ENV = "DIDA365_API_DOMAIN"
+TOKEN_FILE_ENV = "DIDA365_TOKEN_FILE"
+DEFAULT_TOKEN_FILE = Path.home() / ".dida365" / "token"
 
 
 class AuthConfigError(Exception):
@@ -36,15 +39,42 @@ def _env(env: Mapping[str, str] | None) -> Mapping[str, str]:
     return os.environ if env is None else env
 
 
+def token_file_path(env: Mapping[str, str] | None = None) -> Path:
+    override = (_env(env).get(TOKEN_FILE_ENV) or "").strip()
+    if override:
+        return Path(override).expanduser()
+    return DEFAULT_TOKEN_FILE
+
+
+def read_token_file(env: Mapping[str, str] | None = None) -> str | None:
+    try:
+        text = token_file_path(env).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    token = text.strip()
+    return token or None
+
+
+def token_source(env: Mapping[str, str] | None = None) -> str | None:
+    if (_env(env).get(TOKEN_ENV) or "").strip():
+        return "env"
+    if read_token_file(env) is not None:
+        return "file"
+    return None
+
+
 def resolve_token(env: Mapping[str, str] | None = None) -> str:
     token = (_env(env).get(TOKEN_ENV) or "").strip()
-    if not token:
-        raise AuthConfigError(
-            "TOKEN_MISSING",
-            f"未设置 {TOKEN_ENV}",
-            "按 setup-guide 创建个人 API Token 并配置环境变量后重试",
-        )
-    return token
+    if token:
+        return token
+    file_token = read_token_file(env)
+    if file_token:
+        return file_token
+    raise AuthConfigError(
+        "TOKEN_MISSING",
+        f"未设置 {TOKEN_ENV}，且凭据文件不存在：{token_file_path(env)}",
+        f"按 setup-guide 将个人 API Token 写入凭据文件（默认 ~/.dida365/token），或设置 {TOKEN_ENV} 环境变量",
+    )
 
 
 def check_domain_config(env: Mapping[str, str] | None = None) -> None:
