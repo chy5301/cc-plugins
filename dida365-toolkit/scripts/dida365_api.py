@@ -158,5 +158,100 @@ def main(argv: list[str] | None = None) -> int:
     return run_request(args.method, url, body, fields, metadata)
 
 
+def create_client() -> httpx.Client:
+    return httpx.Client(timeout=TIMEOUT_SECONDS, follow_redirects=False)
+
+
+def _redact(text: str, *secrets: str) -> str:
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "[REDACTED]")
+    return text
+
+
+def _error_detail(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict):
+        for key in ("error", "errorMessage", "message", "error_description"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:300]
+    text = response.text.strip()
+    return text[:300] if text else "(无响应正文)"
+
+
+def _decode_success_body(response: httpx.Response, fields: list[str] | None) -> Any:
+    if response.status_code == 204 or not response.content:
+        return {"status": "ok"}
+    try:
+        data = response.json()
+    except ValueError:
+        text = response.text
+        wrapped = {
+            "text": text[:2000],
+            "truncated": len(text) > 2000,
+            "content_type": response.headers.get("content-type", ""),
+        }
+        return wrapped
+    return apply_fields(data, fields)
+
+
 def run_request(method: str, url: str, body: Any, fields: list[str] | None, metadata: dict) -> int:
-    raise NotImplementedError("Task 4 实现")
+    try:
+        auth.validate_origin(url, auth.APPROVED_API_HOSTS)
+        if not url.startswith(auth.API_BASE_URL + PATH_PREFIX):
+            raise auth.AuthConfigError("INVALID_TARGET", "请求路径前缀不受支持")
+        token = auth.resolve_config()
+    except auth.AuthConfigError as exc:
+        return emit_error(exc.code, exc.message, metadata, exc.suggestion, EXIT_USAGE)
+
+    headers = auth.authorization_header(token)
+    started = time.time()
+    try:
+        with create_client() as client:
+            request = client.build_request(method, url, json=body, headers=headers)
+            response = client.send(request, follow_redirects=False)
+    except httpx.TimeoutException:
+        return emit_error("TIMEOUT", "请求超时；本入口不自动重试", metadata, exit_code=EXIT_ERROR)
+    except httpx.RequestError as exc:
+        return emit_error(
+            "NETWORK_ERROR",
+            f"网络错误（{exc.__class__.__name__}）；本入口不自动重试",
+            metadata,
+            exit_code=EXIT_ERROR,
+        )
+
+    metadata = {
+        **metadata,
+        "http_status": response.status_code,
+        "took_ms": int((time.time() - started) * 1000),
+    }
+    status = response.status_code
+    detail = _redact(_error_detail(response), token)
+
+    if 300 <= status < 400:
+        return emit_error("REDIRECT_BLOCKED", f"服务端返回重定向（{status}），本入口不跟随重定向", metadata, exit_code=EXIT_ERROR)
+    if status == 401:
+        return emit_error("UNAUTHORIZED", f"凭据无效或已过期：{detail}", metadata, exit_code=EXIT_AUTH)
+    if status == 403:
+        return emit_error("FORBIDDEN", f"权限不足：{detail}", metadata, exit_code=EXIT_AUTH)
+    if status == 404:
+        return emit_error("NOT_FOUND", f"资源不存在：{detail}", metadata, exit_code=EXIT_NOT_FOUND)
+    if status == 429:
+        return emit_error("RATE_LIMITED", f"触发限流，请稍后重试：{detail}", metadata, exit_code=EXIT_ERROR)
+    if status >= 500:
+        return emit_error("SERVER_ERROR", f"服务端错误（{status}）：{detail}", metadata, exit_code=EXIT_ERROR)
+    if status >= 400:
+        return emit_error("HTTP_ERROR", f"请求失败（{status}）：{detail}", metadata, exit_code=EXIT_ERROR)
+
+    data = _decode_success_body(response, fields)
+    if isinstance(data, list):
+        metadata["result_count"] = len(data)
+    return emit_success(data, metadata)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

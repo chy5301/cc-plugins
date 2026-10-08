@@ -108,3 +108,153 @@ def test_query_must_be_object(capsys):
     )
     assert code == 2
     assert envelope["error"]["code"] == "INVALID_JSON"
+
+
+import httpx
+
+import dida365_api
+
+
+def _client(handler):
+    return httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False)
+
+
+def run_with_transport(monkeypatch, capsys, handler, argv, token="dp_test_token", domain=None):
+    monkeypatch.setenv("DIDA365_API_TOKEN", token)
+    if domain is None:
+        monkeypatch.delenv("DIDA365_API_DOMAIN", raising=False)
+    else:
+        monkeypatch.setenv("DIDA365_API_DOMAIN", domain)
+    monkeypatch.setattr(dida365_api, "create_client", lambda: _client(handler))
+    return run_main(argv, capsys)
+
+
+GET_PROJECT = ["--method", "GET", "--path", "/open/v1/project"]
+
+
+def test_get_success_envelope(monkeypatch, capsys):
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers.get("authorization")
+        return httpx.Response(200, json=[{"id": "p1", "name": "清单"}])
+
+    code, envelope = run_with_transport(monkeypatch, capsys, handler, GET_PROJECT + ["--fields", "id"])
+    assert code == 0
+    assert envelope["success"] is True
+    assert envelope["data"] == [{"id": "p1"}]
+    assert envelope["metadata"]["http_status"] == 200
+    assert envelope["metadata"]["result_count"] == 1
+    assert seen["url"].startswith("https://api.dida365.com/open/v1/project")
+    assert seen["auth"] == "Bearer dp_test_token"
+
+
+def test_post_body_and_query_reach_server(monkeypatch, capsys):
+    seen = {}
+
+    def handler(request):
+        seen["query"] = str(request.url.query, "utf-8")
+        seen["body"] = request.content.decode("utf-8")
+        return httpx.Response(200, json={"ok": True})
+
+    code, envelope = run_with_transport(
+        monkeypatch,
+        capsys,
+        handler,
+        ["--method", "POST", "--path", "/open/v1/task", "--query", '{"limit": 10}', "--body", '{"title": "x"}'],
+    )
+    assert code == 0
+    assert "limit=10" in seen["query"]
+    assert json.loads(seen["body"]) == {"title": "x"}
+    assert envelope["data"] == {"ok": True}
+
+
+def test_empty_and_204_become_explicit_success(monkeypatch, capsys):
+    code, envelope = run_with_transport(monkeypatch, capsys, lambda request: httpx.Response(204), GET_PROJECT)
+    assert code == 0 and envelope["data"] == {"status": "ok"}
+
+
+def test_non_json_success_is_wrapped(monkeypatch, capsys):
+    def handler(request):
+        return httpx.Response(200, text="<html>ok</html>", headers={"content-type": "text/html"})
+
+    code, envelope = run_with_transport(monkeypatch, capsys, handler, GET_PROJECT)
+    assert code == 0
+    assert envelope["data"]["text"] == "<html>ok</html>"
+    assert envelope["data"]["content_type"].startswith("text/html")
+
+
+@pytest.mark.parametrize(
+    "status,error_code,exit_code",
+    [
+        (302, "REDIRECT_BLOCKED", 1),
+        (400, "HTTP_ERROR", 1),
+        (401, "UNAUTHORIZED", 4),
+        (403, "FORBIDDEN", 4),
+        (404, "NOT_FOUND", 3),
+        (429, "RATE_LIMITED", 1),
+        (500, "SERVER_ERROR", 1),
+    ],
+)
+def test_error_mapping(monkeypatch, capsys, status, error_code, exit_code):
+    def handler(request):
+        return httpx.Response(status, json={"error": "boom"})
+
+    code, envelope = run_with_transport(monkeypatch, capsys, handler, GET_PROJECT)
+    assert code == exit_code
+    assert envelope["success"] is False
+    assert envelope["error"]["code"] == error_code
+    assert envelope["metadata"]["http_status"] == status
+    assert "dp_test_token" not in json.dumps(envelope)
+
+
+def test_timeout_no_retry(monkeypatch, capsys):
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        raise httpx.ConnectTimeout("boom")
+
+    code, envelope = run_with_transport(monkeypatch, capsys, handler, GET_PROJECT)
+    assert code == 1
+    assert envelope["error"]["code"] == "TIMEOUT"
+    assert len(calls) == 1
+
+
+def test_connection_error_no_retry(monkeypatch, capsys):
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        raise httpx.ConnectError("boom")
+
+    code, envelope = run_with_transport(monkeypatch, capsys, handler, GET_PROJECT)
+    assert code == 1
+    assert envelope["error"]["code"] == "NETWORK_ERROR"
+    assert len(calls) == 1
+
+
+def test_token_missing_fails_before_client(monkeypatch, capsys):
+    monkeypatch.delenv("DIDA365_API_TOKEN", raising=False)
+
+    def boom():
+        raise AssertionError("缺 Token 时不得创建 client")
+
+    monkeypatch.setattr(dida365_api, "create_client", boom)
+    code, envelope = run_main(GET_PROJECT, capsys)
+    assert code == 2
+    assert envelope["error"]["code"] == "TOKEN_MISSING"
+
+
+def test_international_domain_fails_before_client(monkeypatch, capsys):
+    monkeypatch.setenv("DIDA365_API_TOKEN", "dp_test_token")
+    monkeypatch.setenv("DIDA365_API_DOMAIN", "api.ticktick.com")
+
+    def boom():
+        raise AssertionError("国际配置时不得创建 client")
+
+    monkeypatch.setattr(dida365_api, "create_client", boom)
+    code, envelope = run_main(GET_PROJECT, capsys)
+    assert code == 2
+    assert envelope["error"]["code"] == "REGION_UNSUPPORTED"
