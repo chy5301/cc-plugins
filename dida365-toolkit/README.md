@@ -114,7 +114,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/scripts/dida365_api.py --method DELETE --path /open
 ## 0.6.0 迁移说明（破坏性）
 
 - **改用官方远程 MCP**：任务、清单、状态、查询与移动默认经 `.mcp.json` 注册的官方滴答 MCP 完成；MCP 凭据固定来自默认凭据文件 `~/.dida365/token`。
-- **旧命令式 CLI 参数不再受支持**：旧命令式 CLI 的子命令与 `--body` 等参数形式**不再受支持**（含 schema 自省与 raw 透传）；端点专用子命令不再提供，旧入口文件将在迁移验收通过后移除；MCP 缺口统一走通用 API 执行器（`--method` + `--path` + `--fields` + `--dry-run`）。
+- **旧命令式 CLI 已移除**：其子命令与 `--body` 等参数形式（含 schema 自省与 raw 透传）不再提供；MCP 缺口统一走通用 API 执行器（`--method` + `--path` + `--fields` + `--dry-run`）。
 - **国际 TickTick 不再支持**：只支持国内滴答服务，API 出口固定 `https://api.dida365.com`、MCP 出口固定 `https://mcp.dida365.com`；`DIDA365_API_DOMAIN` 指向 `api.ticktick.com` 等国际/其他域名时会被拒绝，且失败发生在发送任何凭据之前，不做静默降级。
 - **认证方式不自动切换**：401/403/429/超时等失败都不自动换通道或换认证方式；OAuth 只在用户明确选择时用于 MCP 接入，不覆盖 API 补缺。
 - 各 SKILL.md 的 `version` 是该 skill 自身的迭代标识，与 plugin 发布版本解耦。
